@@ -1,0 +1,32 @@
+# Entorno virtual
+env/
+venv/
+.venv/
+
+# Credenciales y configuración local
+.env
+.env.local
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDEs
+.vscode/settings.json
+.idea/
+*.swp
+
+# Sistema operativo
+.DS_Store           # macOS
+Thumbs.db           # Windows
