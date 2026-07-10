@@ -5,13 +5,16 @@ import os
 from time import perf_counter
 
 
-from base import LLMCliente, LLMResponse
+from .base import LLMCliente, LLMResponse
+from src.utils.validators import prompt_validator, temperature_validator
 
 
 class GeminiClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
         
-        super().__init__(system_prompt, temperature, max_output_tokens)
+        super().__init__(system_prompt, 
+                         temperature,
+                         max_output_tokens)
 
 
         self._client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -19,26 +22,26 @@ class GeminiClient(LLMCliente):
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
         start = perf_counter()
-        intereaction = self._client.interactions.create(
-            model= os.getenv("GEMINI_MODEL"),
-            system_instruction= prompt,
-            temperature = self.temperature,
-            max_output_tokens = self.max_output_tokens,
-            previous_interaction_id = id
-        )
+        intereaction = self._client.models.generate_content(
+            model=os.getenv("GEMINI_MODEL"),
+            contents= prompt_validator(prompt),
+            config= types.GenerateContentConfig(
+                temperature= temperature_validator(self.temperature),
+                max_output_tokens=self.max_output_tokens,
+                system_instruction=self.system_prompt))
 
         latency = perf_counter() - start
         
         return LLMResponse(
-            text = intereaction.output_text,
+            text = intereaction.text,
             provider= os.getenv("PROVIDER"),
             model = os.getenv("GEMINI_MODEL"),
             latency= latency,
-            input_tokens= intereaction.usage.total_input_tokens,
-            thinking_tokens= intereaction.usage.total_thought_tokens,
-            output_tokens= intereaction.usage.total_output_tokens,
-            total_tokens=intereaction.usage.total_tokens
+            input_tokens= intereaction.usage_metadata.prompt_token_count,
+            thinking_tokens= intereaction.usage_metadata.thoughts_token_count,
+            output_tokens= intereaction.usage_metadata.candidates_token_count,
+            total_tokens=intereaction.usage_metadata.total_token_count
         )
     
 
-    
+    ''

@@ -9,7 +9,6 @@ class LLMResponse:
     latency: int
     input_tokens: int
     thinking_tokens: int
-    system_tokens: int
     output_tokens: int
     total_tokens: int
 
@@ -18,7 +17,7 @@ class LLMResponse:
 class LLMCliente(ABC):
 
     def __init__(self, system_prompt: str = None, temperature: float = 0.2, max_output_tokens: int = None):
-        self.system_promt = system_prompt
+        self.system_prompt = system_prompt
         self.temperature = temperature
         self.max_output_tokens = max_output_tokens
 
