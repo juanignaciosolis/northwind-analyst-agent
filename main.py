@@ -1,3 +1,9 @@
+from logging import Logger
+from src.utils.logger import setup_logger
+
+logger: Logger = setup_logger(name=__name__)
+
+
 from dotenv import load_dotenv
 import os
 
@@ -8,10 +14,10 @@ from src.core.llm import get_llm_client
 
 if __name__ == "__main__":
         client = get_llm_client()
-        print("¡Éxito! Cliente instanciado")
+        logger.info("¡Éxito! Cliente instanciado")
 
-        print("\nEnviando mensaje de prueba...")
+        logger.info("\nEnviando mensaje de prueba...")
         respuesta = client.send_message(prompt="Hola soy juan, que modelo sos?")
 
-        print(respuesta)
+        logger.info(f"Respuesta: {respuesta}")
               

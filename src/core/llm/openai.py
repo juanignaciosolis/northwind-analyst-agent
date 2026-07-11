@@ -1,3 +1,8 @@
+from logging import Logger
+from src.utils.logger import setup_logger
+
+logger: Logger = setup_logger(name=__name__)
+
 from openai import OpenAI
 import os
 from time import perf_counter
@@ -10,7 +15,10 @@ from src.utils.validators import prompt_validator, temperature_validator
 
 class OpenAIClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
-        
+
+        logger.info("Se inicializa el cliente de OpenAI...")
+        logger.info(f"Configuracion:\nSystem Prompt - {system_prompt}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
+     
         super().__init__(system_prompt, 
                          temperature_validator(temperature),
                          max_output_tokens)
@@ -20,6 +28,11 @@ class OpenAIClient(LLMCliente):
 
 
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
+
+        logger.info("Se evia el mensaje por API")
+
+        logger.info(f"Prompt: {prompt}")
+
 
         messages = []
 
@@ -44,6 +57,9 @@ class OpenAIClient(LLMCliente):
         )
 
         latency = perf_counter() - start
+
+        logger.info("Llamada exitosa!")
+
         
         return LLMResponse(
             text = intereaction.output_text,
