@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 import os
 
-# 1. Cargamos el entorno primero para que la fábrica pueda leer el PROVIDOR
 load_dotenv()
 
 from src.core.llm import get_llm_client
