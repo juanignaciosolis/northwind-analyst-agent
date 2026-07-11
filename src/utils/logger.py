@@ -23,7 +23,7 @@ def setup_logger(name: str = "agent_logger", log_file: str = "logs/app.log") -> 
         fmt="%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
-    rich_formatter = logging.Formatter(fmt="%(message)s")
+    rich_formatter = logging.Formatter(fmt="%(message)s\n")
 
     console_handler = RichHandler(
         rich_tracebacks=True,  

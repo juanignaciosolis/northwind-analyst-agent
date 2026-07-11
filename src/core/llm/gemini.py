@@ -44,7 +44,7 @@ class GeminiClient(LLMCliente):
                 max_output_tokens=self.max_output_tokens,
                 system_instruction=self.system_prompt))
 
-        latency = perf_counter() - start
+        latency = round(perf_counter() - start,2)
 
         logger.info("Llamada exitosa!")
         
