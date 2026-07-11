@@ -11,7 +11,7 @@ import os
 load_dotenv()
 
 from src.core.llm import get_llm_client
-from src.utils.database import execute_query
+from src.utils.database import execute_query, clean_sql_query
 
 
 if __name__ == "__main__":
@@ -35,7 +35,13 @@ if __name__ == "__main__":
 
         logger.info(f"Respuesta: {respuesta}")
 
-        execute_query(respuesta.text)
+        consulta = clean_sql_query(respuesta.text)
+
+        logger.info(f"Consulta generada por el modelo:\n[bold yellow]{consulta}[/]")
+
+        resultado = execute_query(consulta)
+
+        logger.info(resultado)
 
         logger.info("Fin de la prueba")
 

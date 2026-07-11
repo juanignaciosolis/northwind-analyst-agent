@@ -19,7 +19,7 @@ class GeminiClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
 
         logger.info("Se inicializa el cliente de Gemini...")
-        logger.info(f"Configuracion:\nSystem Prompt - {system_prompt}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
+        logger.info(f"Configuracion:\nSystem Prompt - {"Contiene" if system_prompt else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
 
 
         super().__init__(system_prompt, 
