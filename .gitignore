@@ -30,3 +30,7 @@ build/
 # Sistema operativo
 .DS_Store           # macOS
 Thumbs.db           # Windows
+
+#Logs
+logs
+*.log
