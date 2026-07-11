@@ -17,6 +17,7 @@ __pycache__/
 dist/
 build/
 .eggs/
+.pytest_cache/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -34,3 +35,6 @@ Thumbs.db           # Windows
 #Logs
 logs
 *.log
+
+#Docker
+northwind/

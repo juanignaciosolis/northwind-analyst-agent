@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def execute_query(query: str, limit: int = 20) -> list:
+def execute_query(query: str, limit: int = 20) -> pd.DataFrame:
 
     connection = None
     try:
