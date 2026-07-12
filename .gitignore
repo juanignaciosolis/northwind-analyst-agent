@@ -40,5 +40,4 @@ logs
 northwind/
 
 # Artifacts
-artifacts/*.png
 artifacts/*.json
