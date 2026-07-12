@@ -137,21 +137,21 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
         historial.append(datos)
         REGISTRO_JSON.write_text(json.dumps(historial, indent=2), encoding="utf-8")
         
-        # Telemetría Avanzada en Consola
         logger.info(
-            f"┌─── [TELEMETRÍA LLM] ────────────────────────────────────────\n"
-            f"│ 🤖 Modelo:    {model} ({os.getenv('PROVIDER')})\n"
-            f"│ ⏱️ Latencia:  {latencia_ms:,.2f} ms\n"
-            f"├─ Tokens ────────────────────────────────────────────────────\n"
-            f"│ 📥 Input:     {input_tokens:,} tokens\n"
-            f"│ 🧠 Thinking:  {thinking_tokens:,} tokens\n"
-            f"│ 📤 Output:    {output_tokens:,} tokens\n"
-            f"├─ Finanzas ──────────────────────────────────────────────────\n"
-            f"│ 💵 Costo In:  ${costo_input:.5f} USD\n"
-            f"│ 💵 Costo Out: ${costo_output + costo_thinking:.5f} USD\n"
-            f"│ 💰 Total:     ${costo_total:.5f} USD\n"
-            f"└─────────────────────────────────────────────────────────────"
-        )
+    f"┌─── [TELEMETRÍA LLM] ────────────────────────────────────────\n"
+    f"│ 🤖 Modelo:    {model} ({os.getenv('PROVIDER')})\n"
+    f"│ ⏱️ Latencia:  {latencia_ms:,.2f} ms\n"
+    f"├─ Tokens ────────────────────────────────────────────────────\n"
+    f"│ 📥 Input:     {input_tokens:,} tokens\n"
+    f"│ 🧠 Thinking:  {thinking_tokens:,} tokens\n"
+    f"│ 📤 Output:    {output_tokens:,} tokens\n"
+    f"│ 📊 Total:     {input_tokens + thinking_tokens + output_tokens:,} tokens\n"
+    f"├─ Finanzas ──────────────────────────────────────────────────\n"
+    f"│ 💵 Costo In:  ${costo_input:.5f} USD\n"
+    f"│ 💵 Costo Out: ${costo_output + costo_thinking:.5f} USD\n"
+    f"│ 💰 Total:     ${costo_total:.5f} USD\n"
+    f"└─────────────────────────────────────────────────────────────"
+)
 
         return respuesta
     

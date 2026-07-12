@@ -31,7 +31,7 @@ if __name__ == "__main__":
         logger.info("¡Éxito! Cliente instanciado")
 
         logger.info("\nEnviando mensaje de prueba...")
-        respuesta = client.send_message(prompt="Dame los 10 primeros registros de los clientes")
+        respuesta = client.send_message(prompt="Dame el monto de ventas totales por dia junto con el promedio movil con una ventana de 3 dias centralizada")
 
         logger.info(f"Respuesta: {respuesta}")
 

@@ -126,11 +126,11 @@ CREATE TABLE Sales(
 	SupplierKey int NULL,
 	OrderNo int NOT NULL,
 	OrderLineNo int NOT NULL,
-	UnitPrice money NOT NULL,
+	UnitPrice money NOT NULL, -- Castear a decimal cuando se ocupe
 	Quantity smallint NOT NULL,
 	Discount real NOT NULL,
-	SalesAmount money NOT NULL,
-	Freight money NOT NULL
+	SalesAmount money NOT NULL, -- Castear a decimal cuando se ocupe
+	Freight money NOT NULL -- Castear a decimal cuando se ocupe
 );
 
 /****** Table Shipper ******/
