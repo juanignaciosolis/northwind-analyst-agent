@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger("agent_logger.tokenomics")
+
 import functools
 import time
 from typing import Callable, Any
@@ -13,24 +17,24 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
             max_intentos = intentos
             intento = 1
 
-            print("Realizando llamada..")
+            logger.info("Realizando llamada..")
 
             while intento <= max_intentos:
 
                 try:
                     resultado = func(*args, **kwargs)
-                    print(f"Llama exitosa en {intento} intentos")
+                    logger.info(f"Llama exitosa en {intento} intentos")
                     return resultado
                 except Exception as e:
-                    print(f"Llamada fallida: {e}, intento {intento}, se vuelve a intentar...")
+                    logger.warning(f"Llamada fallida: {e}, intento {intento}, se vuelve a intentar...")
                     potencia = delay ** intento
                     if intento == max_intentos:
                         break
                     intento += 1
-                    print(f"Se esperan {potencia} segundos antes de reintentar")
+                    logger.warning(f"Se esperan {potencia} segundos antes de reintentar")
                     time.sleep(potencia)
             
-            print(f"Se acabaron todos lo intentos. En total {max_intentos}")
+            logger.error(f"Se acabaron todos lo intentos. En total {max_intentos}")
             raise Exception("Máximo de intentos fallidos en la API.")
         
         return wrapper

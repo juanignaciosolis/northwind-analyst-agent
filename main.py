@@ -12,7 +12,7 @@ load_dotenv()
 
 from src.core.llm import get_llm_client
 from src.utils.database import execute_query, clean_sql_query
-
+from src.utils.tokenomics import generar_reporte_markdown
 
 if __name__ == "__main__":
 
@@ -34,6 +34,8 @@ if __name__ == "__main__":
         respuesta = client.send_message(prompt="Dame los 10 primeros registros de los clientes")
 
         logger.info(f"Respuesta: {respuesta}")
+
+        generar_reporte_markdown()
 
         consulta = clean_sql_query(respuesta.text)
 

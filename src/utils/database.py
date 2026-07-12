@@ -3,21 +3,12 @@ from src.utils.logger import setup_logger
 
 logger: Logger = setup_logger(name=__name__)
 
-
-import os
-import psycopg2
-import pandas as pd
-from dotenv import load_dotenv
-
-# Aseguramos la carga de variables de entorno
-load_dotenv()
-
-
 import os
 import logging
 import psycopg2
 from psycopg2 import OperationalError, ProgrammingError, DataError, Error
 from dotenv import load_dotenv
+import pandas as pd
 
 load_dotenv()
 

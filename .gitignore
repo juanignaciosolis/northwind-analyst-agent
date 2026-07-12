@@ -38,3 +38,7 @@ logs
 
 #Docker
 northwind/
+
+# Artifacts
+artifacts/*.png
+artifacts/*.json

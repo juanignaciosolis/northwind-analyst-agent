@@ -12,6 +12,8 @@ from time import perf_counter
 
 from .base import LLMCliente, LLMResponse
 from src.utils.validators import prompt_validator, temperature_validator
+from src.utils.decorators import retry_backoff
+from src.utils.tokenomics import auditar_tokenomics
 
 
 
@@ -28,6 +30,8 @@ class GeminiClient(LLMCliente):
 
         self._client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
+    @auditar_tokenomics
+    @retry_backoff(3,2)
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
         logger.info("Se evia el mensaje por API")
@@ -52,12 +56,9 @@ class GeminiClient(LLMCliente):
             text = intereaction.text,
             provider= os.getenv("PROVIDER"),
             model = os.getenv("GEMINI_MODEL"),
-            latency= latency,
-            input_tokens= intereaction.usage_metadata.prompt_token_count,
-            thinking_tokens= intereaction.usage_metadata.thoughts_token_count,
-            output_tokens= intereaction.usage_metadata.candidates_token_count,
-            total_tokens=intereaction.usage_metadata.total_token_count
+            latency= float(latency),
+            input_tokens= int(intereaction.usage_metadata.prompt_token_count or 0),
+            thinking_tokens= int(intereaction.usage_metadata.thoughts_token_count or 0),
+            output_tokens= int(intereaction.usage_metadata.candidates_token_count or 0),
+            total_tokens= int(intereaction.usage_metadata.total_token_count or 0)
         )
-    
-
-    ''

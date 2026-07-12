@@ -11,7 +11,8 @@ from typing import Optional
 
 from .base import LLMCliente, LLMResponse
 from src.utils.validators import prompt_validator, temperature_validator
-
+from src.utils.decorators import retry_backoff
+from src.utils.tokenomics import auditar_tokenomics
 
 class OpenAIClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
@@ -26,7 +27,8 @@ class OpenAIClient(LLMCliente):
 
         self._client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
 
-
+    auditar_tokenomics
+    retry_backoff(3,2)
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
         logger.info("Se evia el mensaje por API")
@@ -65,11 +67,11 @@ class OpenAIClient(LLMCliente):
             text = intereaction.output_text,
             provider= os.getenv("PROVIDER"),
             model = os.getenv("GEMINI_MODEL"),
-            latency= latency,
-            input_tokens= intereaction.usage.input_tokens,
-            thinking_tokens= intereaction.usage.output_tokens_details.reasoning_tokens,
-            output_tokens= intereaction.usage.output_tokens,
-            total_tokens=intereaction.usage.total_tokens
+            latency= float(latency),
+            input_tokens= int(intereaction.usage.input_tokens or 0),
+            thinking_tokens= int(intereaction.usage.output_tokens_details.reasoning_tokens or 0),
+            output_tokens= int(intereaction.usage.output_tokens or 0),
+            total_tokens= int(intereaction.usage.total_tokens or 0)
         )
     
 
