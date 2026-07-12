@@ -79,7 +79,7 @@ def generar_reporte_markdown():
         f.write(f"| **Costo Financiero Incurrido** | ${total_costo:.4f} USD |\n")
         f.write(f"| **Presupuesto Restante** | ${presupuesto_restante:.4f} USD |\n")
         f.write(f"| Tokens Totales Consumidos | {total_input + total_output + total_thinking:,} tokens |\n")
-        f.write(f"| Latencia Promedio de API | {avg_latencia:,.2f} ms |\n\n")
+        f.write(f"| Latencia Promedio de API | {avg_latencia:,.3f} ms |\n\n")
 
         f.write(f"## Monitoreo Visual del Presupuesto\n\n")
         f.write(f"![Gráfica de Costo Acumulado](./costo_acumulado.png)\n\n")

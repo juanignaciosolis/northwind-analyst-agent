@@ -58,7 +58,7 @@ class OpenAIClient(LLMCliente):
             max_output_tokens = self.max_output_tokens
         )
 
-        latency = round(perf_counter() - start,2)
+        latency = round(perf_counter() - start,4)
 
         logger.info("Llamada exitosa!")
 
