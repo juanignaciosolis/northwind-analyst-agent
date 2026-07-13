@@ -36,7 +36,7 @@ class GeminiClient(LLMCliente):
 
         logger.info("Se evia el mensaje por API")
 
-        logger.info(f"Prompt: {prompt}")
+        logger.info("Prompt: " + f"[orange3]{prompt}[/]")
 
 
         start = perf_counter()
@@ -54,7 +54,7 @@ class GeminiClient(LLMCliente):
         
         return LLMResponse(
             text = intereaction.text,
-            provider= os.getenv("PROVIDER"),
+            provider= os.getenv("LLM_PROVIDER"),
             model = os.getenv("GEMINI_MODEL"),
             latency= float(latency),
             input_tokens= int(intereaction.usage_metadata.prompt_token_count or 0),

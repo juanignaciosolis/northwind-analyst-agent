@@ -14,7 +14,7 @@ load_dotenv(Path(__file__).resolve().parents[3])
 
 def get_llm_client(*args,**kwargs) -> LLMCliente:
     try:
-        providor = os.getenv("PROVIDER")
+        providor = os.getenv("LLM_PROVIDER")
     except:
         raise "Falta definir al PROVIDOR como variable de entorno"
 
@@ -23,7 +23,7 @@ def get_llm_client(*args,**kwargs) -> LLMCliente:
     elif providor == "OPENAI":
         return OpenAIClient(*args,**kwargs)
     else:
-        raise "PROVIDER no implementado"
+        raise "LLM PROVIDER no implementado"
 
 
 __all__ = ["get_llm_client"]

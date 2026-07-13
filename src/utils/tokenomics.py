@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 import os
 from md2pdf import md2pdf
 
-PRESUPUESTO_MAXIMO = 1.50  
+PRESUPUESTO_MAXIMO = float(os.getenv("BUDGET",0))
 
 REGISTRO_JSON = Path("artifacts/tokenomics_history.json")
 GRAFICO_PNG = Path("artifacts/costo_acumulado.png")
@@ -106,8 +106,8 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
         latencia_ms = getattr(respuesta, "latencia", 0.0)
         
         tarifas = {
-            "input": float(os.getenv("GEMINI_INPUT_TOKENS_COST_PER_MILLION",0) if os.getenv("PROVIDER") == "GEMINI" else os.getenv("OPENAI_INPUT_TOKENS_COST_PER_MILLION",0)),
-            "output": float(os.getenv("GEMINI_INPUT_TOKENS_COST_PER_MILLION",0) if os.getenv("PROVIDER") == "GEMINI" else os.getenv("OPENAI_INPUT_TOKENS_COST_PER_MILLION",0))
+            "input": float(os.getenv("GEMINI_INPUT_TOKENS_COST_PER_MILLION",0) if os.getenv("LLM_PROVIDER") == "GEMINI" else os.getenv("OPENAI_INPUT_TOKENS_COST_PER_MILLION",0)),
+            "output": float(os.getenv("GEMINI_INPUT_TOKENS_COST_PER_MILLION",0) if os.getenv("LLM_PROVIDER") == "GEMINI" else os.getenv("OPENAI_INPUT_TOKENS_COST_PER_MILLION",0))
         }
         
         costo_input = input_tokens * (tarifas["input"] / 1000000)
@@ -120,7 +120,7 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
             "timestamp": ahora.isoformat(),
             "fecha": ahora.strftime("%Y-%m-%d"),
             "hora": ahora.strftime("%H:%M"),
-            "provider": os.getenv("PROVIDER"),
+            "provider": os.getenv("LLM_PROVIDER"),
             "model": model,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
@@ -138,8 +138,8 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
         REGISTRO_JSON.write_text(json.dumps(historial, indent=2), encoding="utf-8")
         
         logger.info(
-    f"┌─── [TELEMETRÍA LLM] ────────────────────────────────────────\n"
-    f"│ 🤖 Modelo:    {model} ({os.getenv('PROVIDER')})\n"
+    f"┌─── [[bold blue] TELEMETRÍA LLM [/]] ────────────────────────────────────────\n"
+    f"│ 🤖 Modelo:    {model} ({os.getenv('LLM_PROVIDER')})\n"
     f"│ ⏱️ Latencia:  {latencia_ms:,.2f} ms\n"
     f"├─ Tokens ────────────────────────────────────────────────────\n"
     f"│ 📥 Input:     {input_tokens:,} tokens\n"

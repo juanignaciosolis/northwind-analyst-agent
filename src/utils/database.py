@@ -29,14 +29,16 @@ def execute_query(query: str, limit: int = 20) -> pd.DataFrame:
         with connection.cursor() as cursor:
             cursor.execute(query)
             
-            filas = cursor.fetchmany(limit)
+            filas = cursor.fetchall()
 
             columnas = [desc[0] for desc in cursor.description]
 
             tabla = pd.DataFrame(filas, columns=columnas)
+
+            tabla_limitada = tabla.head(limit)
             
             logger.info(f"Consulta ejecutada  Se recuperaron las primeras {tabla.shape[0]} filas (Límite máximo configurado: {limit}).")
-            return tabla
+            return tabla_limitada
         
     # 1. Error Específico: Falla la conexión (credenciales mal puestas, server apagado, puerto bloqueado)   
     except OperationalError as e:

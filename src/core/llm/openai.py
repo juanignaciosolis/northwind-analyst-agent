@@ -33,7 +33,7 @@ class OpenAIClient(LLMCliente):
 
         logger.info("Se evia el mensaje por API")
 
-        logger.info(f"Prompt: {prompt}")
+        logger.info("Prompt: " + f"[orange3]{prompt}[/]")
 
 
         messages = []
@@ -65,7 +65,7 @@ class OpenAIClient(LLMCliente):
         
         return LLMResponse(
             text = intereaction.output_text,
-            provider= os.getenv("PROVIDER"),
+            provider= os.getenv("LLM_PROVIDER"),
             model = os.getenv("GEMINI_MODEL"),
             latency= float(latency),
             input_tokens= int(intereaction.usage.input_tokens or 0),
