@@ -37,7 +37,7 @@ def execute_query(query: str, limit: int = 20) -> pd.DataFrame:
 
             tabla_limitada = tabla.head(limit)
             
-            logger.info(f"Consulta ejecutada  Se recuperaron las primeras {tabla.shape[0]} filas (Límite máximo configurado: {limit}).")
+            logger.info(f"Consulta ejecutada  Se recuperaron {tabla.shape[0]} filas (Límite máximo configurado: {limit}).")
             return tabla_limitada
         
     # 1. Error Específico: Falla la conexión (credenciales mal puestas, server apagado, puerto bloqueado)   
