@@ -6,6 +6,7 @@ logger: Logger = setup_logger(name=__name__)
 import os
 import psycopg2
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Cargar configuración desde el .env
 load_dotenv()
@@ -18,9 +19,9 @@ db_password = os.getenv("DB_PASSWORD")
 db_name = os.getenv("DB_NAME")
 db_port = os.getenv("DB_PORT", "5432")
 
-SQL_FILE_PATH = "northwind.sql"
+SQL_FILE_PATH = Path(__file__).resolve() / "db" / "northwind.sql"
 
-if not os.path.exists(SQL_FILE_PATH):
+if not SQL_FILE_PATH.exists():
     logger.error(f"No se encontró el archivo '{SQL_FILE_PATH}' en la raíz del proyecto.")
     exit(1)
 
