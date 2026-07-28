@@ -6,13 +6,25 @@ import functools
 import time
 from typing import Callable, Any
 import requests
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
+from pydantic import ValidationError, TypeAdapter
+import json
+
+answer_validator_router = TypeAdapter( SQLAnswer | InvalidAnswerScheme)
+
+SQL_SCHEMA_STR = json.dumps(SQLAnswer.model_json_schema(), ensure_ascii=False)
+INV_SCHEMA_STR = json.dumps(InvalidAnswerScheme.model_json_schema(), ensure_ascii=False)
 
 def retry_backoff(intentos: int, delay: int) -> Callable:
     
-    def decorator(func: function) -> Callable:
+    def decorator(func: Callable) -> Callable:
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
+
+            prompt_base = kwargs.get("prompt","")
+
+            schema_error = None
 
             max_intentos = intentos
             intento = 1
@@ -22,9 +34,32 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
             while intento <= max_intentos:
 
                 try:
+                    if schema_error:
+                        prompt_modificado = prompt_base + (
+                            "\n\n# ERROR\n"
+                            "Tu respuesta anterior no respetó la estructura obligatoria. Los esquemas de respuesta permitidos son\n"
+                            "## RESPUESTA con 'sql_success':\n" 
+                            f"{SQL_SCHEMA_STR}\n"
+                            "## RESPUESTA con 'invalid_query':\n"
+                            f"{INV_SCHEMA_STR   }")
+                        kwargs["prompt"] = prompt_modificado
+
                     resultado = func(*args, **kwargs)
-                    logger.info(f"Llama exitosa en {intento} intentos")
+                    resultado = answer_validator_router.validate_json(resultado)
+                    if isinstance(resultado, SQLAnswer):                 
+                        logger.info(f"Llama exitosa en {intento} intentos. Consulta SQL devuelta")
+                    else:
+                        logger.info(f"Llama exitosa en {intento} intentos. Error reportado")
                     return resultado
+                except ValidationError as e:
+                    logger.warning(f"Llamada fallida: {e}, intento {intento}, se vuelve a intentar...")
+                    potencia = delay ** intento
+                    if intento == max_intentos:
+                        break
+                    intento += 1
+                    schema_error = e
+                    logger.warning(f"Se esperan {potencia} segundos antes de reintentar")
+                    time.sleep(potencia)
                 except Exception as e:
                     logger.warning(f"Llamada fallida: {e}, intento {intento}, se vuelve a intentar...")
                     potencia = delay ** intento
@@ -44,19 +79,48 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
 
 if __name__ == "__main__":
 
-    URL = "https://randomuser.me/api/"
-    @retry_backoff(2,2)
-    def funcion_prueba():
-        respuesta = requests.get(URL)
-        return respuesta
+    # Simulación A: Una función que devuelve un JSON válido de SQL
+    @retry_backoff(intentos=2, delay=1)
+    def funcion_simulada_exitosa(prompt: str):
+        return json.dumps({
+            "type": "sql_success",
+            "query": "SELECT * FROM users;",
+            "human_revision": False,
+            "confidence": 0.95
+        })
+
+    # Simulación B: Una función que falla en el primer intento y se corrige en el segundo
+    contador_intentos = 0
+
+    @retry_backoff(intentos=2, delay=1)
+    def funcion_simulada_con_correccion(prompt: str):
+        global contador_intentos
+        contador_intentos += 1
         
-    
+        # En el primer intento devuelve un JSON inválido (le falta el campo 'query')
+        if contador_intentos == 1:
+            logger.info(f"\n--- PROMPT RECIBIDO (Intento 1) ---\n{prompt}")
+            return json.dumps({"type": "sql_success", "confidence": 0.5}) 
+        
+        # En el segundo intento (tras recibir la corrección en el prompt) responde bien
+        logger.info(f"\n--- PROMPT RECIBIDO (Intento 2 con Feedback) ---\n{prompt}")
+        return json.dumps({
+            "type": "sql_success", 
+            "query": "SELECT COUNT(*) FROM ventas;",
+            "human_revision": False,
+            "confidence": 0.99
+        })
 
-    for i in range(0,20):
+    # Ejecución de pruebas
+    logger.info("=== PRUEBA 1: Respuesta exitosa directa ===")
+    res1 = funcion_simulada_exitosa(prompt="¿Cuántos usuarios hay?")
+    logger.info(f"Resultado instanciado: {type(res1)} -> {res1.query}\n")
 
-        print(f"\n Intento {i}: ",funcion_prueba(),"\n")
+    logger.info("=== PRUEBA 2: Reintento con auto-corrección de Prompt ===")
+    res2 = funcion_simulada_con_correccion(prompt="Dame las ventas")
+    logger.info(f"Resultado instanciado: {type(res2)} -> {res2.query}")
 
-    print("Prueba terminada")
+    logger.info("Prueba terminada")
 
 
     

@@ -4,7 +4,6 @@ from src.utils.logger import setup_logger
 logger: Logger = setup_logger(name=__name__)
 
 
-from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import Literal
 
@@ -34,9 +33,3 @@ class InvalidAnswerScheme(BaseModel):
         le=1.0,
         description="Confianza estimada entre 0 y 1."
     ) 
-
-class AnswerWrapper(BaseModel):
-    payload: SQLAnswer | InvalidAnswerScheme = Field(
-        discriminator="type",
-        description="Resultado del procesamiento: la consulta generada o el error detallado"
-    )

@@ -198,5 +198,25 @@
       "ORDER BY \"Cant. de compras\" DESC",
       "LIMIT 10"
     ]
+  },
+  {
+    "question": "Quiero saber la variacion de la ventas diarias por categoria junto con los montos de los descuentos aplicados",
+    "query": "WITH date_sales AS (\nSELECT c.categoryname, d.date, SUM(s.salesamount) as sales, SUM(s.salesamount * s.discount) AS discounts\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY c.categoryname, d.date\n)\nSELECT categoryname AS \"Categoría de producto\", date AS \"Fecha\",\nsales AS \"Ventas\", discounts AS \"Descuentos\", \n((sales / LAG(sales) OVER(PARTITION BY categoryname ORDER BY date)) - 1) * 100 AS \"Variacion en ventas\"\nFROM date_sales\nORDER BY categoryname, date",
+    "evidence": [
+      "LAG(sales)",
+      "OVER(PARTITION BY categoryname ORDER BY date)",
+      "SUM(s.salesamount * s.discount)",
+      "GROUP BY c.categoryname, d.date"
+    ]
+  },
+  {
+    "question": "Cuales son las 10 ciudades a las que menos se vende y cuanto es el costo promedio del flete producto de las ventas junto con el porcentaje sobre la venta",
+    "query": "WITH city_sales AS (\nSELECT ci.cityname, s.orderno, s.freight :: numeric, SUM(s.salesamount) AS sales \nFROM sales s\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city ci ON c.citykey = ci.citykey\nGROUP BY ci.cityname, s.orderno, freight\n)\nSELECT cityname AS \"Ciudad\", SUM(sales) AS \"Ventas totales\", AVG(freight) AS \"Costo del flete promedio\",\n(SUM(freight) / SUM(sales) :: numeric) * 100 AS \"Porcentaje del flete sobre las ventas totales\"\nFROM city_sales\nGROUP BY cityname\nORDER BY \"Ventas totales\"\nLIMIT 10",
+    "evidence": [
+      "AVG(freight)",
+      "(SUM(freight) / SUM(sales) :: numeric) * 100",
+      "ORDER BY \"Ventas totales\"",
+      "LIMIT 10"
+    ]
   }
 ]

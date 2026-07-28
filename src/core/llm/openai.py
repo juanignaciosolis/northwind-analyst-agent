@@ -10,7 +10,7 @@ from typing import Optional
 
 
 from .base import LLMCliente, LLMResponse
-from src.utils.validators import prompt_validator, temperature_validator
+from src.utils.validators import prompt_constructor, temperature_validator
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 
@@ -48,7 +48,7 @@ class OpenAIClient(LLMCliente):
         messages.append(
             {
                 "role": "user",
-                "content": prompt_validator(prompt)
+                "content": prompt_constructor(prompt)
             })
 
         start = perf_counter()

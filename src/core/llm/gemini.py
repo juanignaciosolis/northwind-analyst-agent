@@ -11,7 +11,7 @@ from time import perf_counter
 
 
 from .base import LLMCliente, LLMResponse
-from src.utils.validators import prompt_validator, temperature_validator
+from src.utils.validators import prompt_constructor, temperature_validator
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 
@@ -42,7 +42,7 @@ class GeminiClient(LLMCliente):
         start = perf_counter()
         intereaction = self._client.models.generate_content(
             model=os.getenv("GEMINI_MODEL"),
-            contents= prompt_validator(prompt),
+            contents= prompt_constructor(prompt),
             config= types.GenerateContentConfig(
                 temperature= temperature_validator(self.temperature),
                 max_output_tokens=self.max_output_tokens,

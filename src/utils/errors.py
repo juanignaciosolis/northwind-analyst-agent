@@ -7,7 +7,14 @@ class TypePromptError(Exception):
     def __init__(self,message = "El prompt del usuario debe ser de tipo String"):
         super().__init__(message)
 
+class ShorterLenghtPromptError(Exception):
+    def __init__(self,message = "El prompt del usuario es demasiado corto"):
+        super().__init__(message)
 
+class LongerLenghtPromptError(Exception):
+    def __init__(self,message = "El prompt del usuario es demasiado largo"):
+        super().__init__(message)
+        
 class TemperatureLimitsError(Exception):
     def __init__(self,message = "La temperatura debe estar entre 0 y 2"):
         super().__init__(message)

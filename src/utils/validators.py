@@ -1,13 +1,20 @@
-from .errors import TypePromptError, EmptyPromptError, TemperatureTypeError, TemperatureLimitsError
+from .errors import TypePromptError, EmptyPromptError, TemperatureTypeError, TemperatureLimitsError, ShorterLenghtPromptError, LongerLenghtPromptError
+import re
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
 
-
-def prompt_validator(prompt: str) -> str:
-    if prompt in (None, ""):
+def prompt_constructor(mensaje: str) -> str:
+    if mensaje in (None, ""):
         raise EmptyPromptError
-    if not isinstance(prompt, str):
+    if not isinstance(mensaje, str):
         raise TypePromptError
+    if len(mensaje) <= 10:
+        raise ShorterLenghtPromptError
+    if len(mensaje) >= 5000:
+        raise LongerLenghtPromptError
+
+    mensaje = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", mensaje)
     
-    clean_prompt = prompt.strip()
+    clean_prompt = mensaje.strip()
     
     return clean_prompt
 
@@ -21,3 +28,9 @@ def temperature_validator(temperature: float | int) -> float | int:
         raise TemperatureLimitsError
     
     return temperature
+
+def aplicar_reglas(resultado: SQLAnswer | InvalidAnswerScheme) -> SQLAnswer | InvalidAnswerScheme:
+    if resultado.confianza < 0.65:
+        resultado.human_revision = True
+
+    return resultado
