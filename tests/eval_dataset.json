@@ -1,0 +1,202 @@
+[
+  {
+    "question": "Cuanto fueron las ventas por anio, producto, categoria y cliente",
+    "query": "SELECT d.year AS \"Año\", cat.categoryname AS \"Categoria\", p.productname AS \"Producto\", c.companyname AS \"Cliente\", SUM(salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN product p ON s.productkey = p.productkey\nJOIN category cat ON p.categorykey = cat.categorykey\nGROUP BY d.year, cat.categoryname, p.productname, c.companyname\nORDER BY d.year, cat.categoryname, p.productname, c.companyname",
+    "evidence": [
+      "SUM(salesamount)",
+      "JOIN category cat",
+      "GROUP BY d.year, cat.categoryname, p.productname, c.companyname",
+      "ORDER BY d.year, cat.categoryname"
+    ]
+  },
+  {
+    "question": "Cuanto fuero las ventas anuales por pais del cliente y del proveedor",
+    "query": "SELECT d.year AS \"Año\", ct.countryname AS \"País del cliente\", ct2.countryname AS \"País del proveedor\", SUM(s.salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nJOIN supplier sp ON sp.supplierkey = s.supplierkey\nJOIN city cy2 ON cy2.citykey = sp.citykey\nJOIN state st2 ON st2.statekey = cy2.statekey\nJOIN country ct2 ON ct2.countrykey = st2.countrykey\nGROUP BY d.year, ct.countryname, ct2.countryname\nORDER BY d.year, ct.countryname, ct2.countryname",
+    "evidence": [
+      "JOIN country ct",
+      "JOIN country ct2",
+      "JOIN supplier sp",
+      "GROUP BY d.year, ct.countryname, ct2.countryname"
+    ]
+  },
+  {
+    "question": "Cuanto fueron las ventas mensuales por pais de consumidor comparada con la del mes anterior",
+    "query": "WITH monthly_sales AS (\nSELECT d.year, d.monthnumber, ct.countryname, SUM(salesamount) as salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN customer c on c.customerkey = s.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nGROUP BY d.year, d.monthnumber, ct.countryname\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", countryname AS \"País\", salesamount AS \"Ventas\",\nLAG(salesamount) OVER(PARTITION BY countryname ORDER BY year,monthnumber) AS \"Ventas del mes anterior\"\nFROM monthly_sales",
+    "evidence": [
+      "LAG(salesamount)",
+      "OVER(PARTITION BY countryname ORDER BY year,monthnumber)",
+      "GROUP BY d.year, d.monthnumber, ct.countryname",
+      "WITH monthly_sales AS"
+    ]
+  },
+  {
+    "question": "Cuanto fue el crecimiento mensual de ventas por producto?. Es decir, la ventas por mes de cada producto respecto a las del mes anterior",
+    "query": "WITH monthly_sales AS (\nSELECT d.year, d.monthnumber, p.productname, SUM(salesamount) as salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nGROUP BY d.year, d.monthnumber, p.productname\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", productname AS \"Producto\", salesamount AS \"Ventas\",\nLAG(salesamount) OVER(PARTITION BY productname ORDER BY year,monthnumber) AS \"Ventas del mes anterior\"\nFROM monthly_sales",
+    "evidence": [
+      "LAG(salesamount)",
+      "OVER(PARTITION BY productname ORDER BY year,monthnumber)",
+      "GROUP BY d.year, d.monthnumber, p.productname",
+      "JOIN product p"
+    ]
+  },
+  {
+    "question": "Dame los 3 empleados que mas ventas consiguieron",
+    "query": "SELECT lastname || ' ' || firstname AS \"Empleado\", SUM(salesamount) as \"Ventas\"\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nGROUP BY lastname,firstname\nORDER BY SUM(salesamount) DESC\nLIMIT 3",
+    "evidence": [
+      "SUM(salesamount)",
+      "JOIN employee e",
+      "ORDER BY SUM(salesamount) DESC",
+      "LIMIT 3"
+    ]
+  },
+  {
+    "question": "Cuales fueron los empleados que mas ventas consiguieron por producto y en cada año",
+    "query": "WITH ranking AS (\nSELECT d.year, p.productname, e.lastname, e.firstname, SUM(s.salesamount) AS salesamount,\nRANK() OVER (PARTITION BY d.year, p.productname ORDER BY SUM(s.salesamount) DESC ) as rank\nFROM sales s\nJOIN product p ON s.productkey = p.productkey\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN employee e ON e.employeekey = s.employeekey \nGROUP BY d.year, p.productname, e.lastname, e.firstname\n)\nSELECT year AS \"Año\", productname AS \"Producto\", lastname || '' || firstname AS \"Empleado\", salesamount AS \"Ventas\"\nFROM ranking\nWHERE rank = 1",
+    "evidence": [
+      "RANK() OVER",
+      "PARTITION BY d.year, p.productname",
+      "ORDER BY SUM(s.salesamount) DESC",
+      "WHERE rank = 1"
+    ]
+  },
+  {
+    "question": "Cuales son los países que componen el 50% de nuestras ventas",
+    "query": "WITH countries_sales AS (\nSELECT ct.countryname, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN customer c on c.customerkey = s.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nGROUP BY  ct.countryname\n),\nshare AS (\nSELECT countryname, salesamount, SUM(salesamount) OVER(ORDER BY salesamount DESC)/ SUM(salesamount) OVER() AS share,\nsalesamount / SUM(salesamount) OVER() AS sales_percent\nFROM countries_sales\n)\nSELECT countryname AS \"País\", salesamount AS \"Ventas\", sales_percent * 100 AS \"Porcentaje de ventas\"\nFROM share\nWHERE share <= 0.5",
+    "evidence": [
+      "SUM(salesamount) OVER(ORDER BY salesamount DESC)/ SUM(salesamount) OVER()",
+      "salesamount / SUM(salesamount) OVER()",
+      "share <= 0.5",
+      "GROUP BY  ct.countryname"
+    ]
+  },
+  {
+    "question": "Quiero el total de las ventas y el promedio mensual de ventas por empleado y por año",
+    "query": "WITH monthly_sales AS (\nSELECT e.lastname, e.firstname, d.year, d.monthnumber, SUM(s.salesamount :: numeric) AS salesamount\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY lastname, firstname, year, monthnumber\n)\nSELECT lastname || ' ' || firstname AS \"Empleado\", year AS \"Año\",\nSUM(salesamount) AS \"Ventas Totales\", AVG(salesamount) AS \"Ventas promedio mensuales\"\nFROM monthly_sales\nGROUP BY lastname, firstname, year\nORDER BY lastname, firstname, year",
+    "evidence": [
+      "AVG(salesamount)",
+      "SUM(s.salesamount :: numeric)",
+      "GROUP BY lastname, firstname, year, monthnumber",
+      "GROUP BY lastname, firstname, year"
+    ]
+  },
+  {
+    "question": "Cuantas fueron las ventas mensuales y los descuentos aplicados por cada producto",
+    "query": "SELECT p.productname AS \"Producto\", d.year AS \"Año\", d.monthnumber AS \"Mes\",\nSUM(s.salesamount) AS \"Ventas\", SUM( s.salesamount * s.discount) AS \"Descuentos\"\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nGROUP BY p.productname, d.year, d.monthnumber\nORDER BY p.productname, d.year, d.monthnumber",
+    "evidence": [
+      "SUM(s.salesamount)",
+      "SUM( s.salesamount * s.discount)",
+      "GROUP BY p.productname, d.year, d.monthnumber",
+      "JOIN product p"
+    ]
+  },
+  {
+    "question": "Dame las ventas acumuladas mensuales por cada categoria de producto",
+    "query": "WITH monthly_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY categoryname, year, monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", SUM(salesamount) OVER(PARTITION BY categoryname ORDER BY year, monthnumber) AS \"Ventas mensuales acumuladas\"\nFROM monthly_sales\nORDER BY categoryname, year, monthnumber",
+    "evidence": [
+      "SUM(salesamount) OVER",
+      "PARTITION BY categoryname",
+      "ORDER BY year, monthnumber",
+      "GROUP BY categoryname, year, monthnumber"
+    ]
+  },
+  {
+    "question": "Dame el promedio movil de las ultimas 3 ventas mensuales por categoria de producto",
+    "query": "WITH monthly_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount :: numeric) AS salesamount\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY categoryname, year, monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", \nAVG(salesamount) OVER(\nPARTITION BY categoryname \nORDER BY year, monthnumber\nROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS \"Promedio movil últimos 3 meses\"\nFROM monthly_sales\nORDER BY categoryname, year, monthnumber",
+    "evidence": [
+      "AVG(salesamount) OVER",
+      "PARTITION BY categoryname",
+      "ORDER BY year, monthnumber",
+      "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW"
+    ]
+  },
+  {
+    "question": "Quiero que me compares las ventas totales de un empleado contra el total de las realizadas por el y todos sus subordinados en el año 2017",
+    "query": "WITH RECURSIVE hierarchy AS (\nSELECT e.lastname, e.firstname, e.employeekey AS bosskey, e.employeekey AS subordinatekey\nFROM employee e\nUNION ALL\nSELECT h.lastname, h.firstname, h.bosskey, e.employeekey AS subordinatekey\nFROM employee e\nJOIN hierarchy h ON e.supervisorkey = h.subordinatekey\n),\nemployee_sales AS (\nSELECT s.employeekey, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nWHERE d.year = 2017\nGROUP BY s.employeekey\n)\nSELECT h.lastname || ' ' || h.firstname AS \"Empleado\", es2.salesamount AS \"Ventas propias\", SUM(es.salesamount) \"Ventas del equipo\"\nFROM employee_sales es\nJOIN hierarchy h ON h.subordinatekey = es.employeekey\nJOIN employee_sales es2 ON es2.employeekey = h.bosskey\nGROUP BY h.lastname, h.firstname, es2.salesamount",
+    "evidence": [
+      "WITH RECURSIVE hierarchy",
+      "UNION ALL",
+      "JOIN hierarchy h ON h.subordinatekey = es.employeekey",
+      "WHERE d.year = 2017"
+    ]
+  },
+  {
+    "question": "Quiero que para cada orden me digas el monto total de venta, numeros de productos y las cantidades totales",
+    "query": "SELECT orderno AS \"Orden\", SUM(salesamount) AS  \"Monto de venta\",\nCOUNT(productkey) AS \"Cantidad de productos\", SUM(quantity) AS \"Cantidades vendidas\"\nFROM sales\nGROUP BY orderno",
+    "evidence": [
+      "SUM(salesamount)",
+      "COUNT(productkey)",
+      "SUM(quantity)",
+      "GROUP BY orderno"
+    ]
+  },
+  {
+    "question": "Para cada mes quiero que me digas las ventas totales, la cantidad de ordenes emitidas y el ticket promedio",
+    "query": "WITH order_sales AS(\nSELECT d.year, d.monthnumber, s.orderno, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nGROUP BY d.year, d.monthnumber, s.orderno\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", SUM(salesamount) AS \"Ventas totales\",\nCOUNT(orderno) AS \"Cantidad de órdenes\", AVG(salesamount :: numeric) AS \"Ticker promedio\"\nFROM order_sales\nGROUP BY year, monthnumber\nORDER BY year, monthnumber",
+    "evidence": [
+      "COUNT(orderno)",
+      "AVG(salesamount :: numeric)",
+      "GROUP BY d.year, d.monthnumber, s.orderno",
+      "GROUP BY year, monthnumber"
+    ]
+  },
+  {
+    "question": "Dame por cada empleado el monto total vendido, el numero de clientes gestionados y el numero de ciudades y estados a los que fue asignado",
+    "query": "SELECT e.lastname || ' ' || e.firstname AS \"Empleado\", SUM(s.salesamount) AS \"Ventas totales\",\nCOUNT (DISTINCT s.customerkey) AS \"Clientes gestionados\", COUNT(DISTINCT c.citykey) AS \"Ciudades asignadas\",\nCOUNT( DISTINCT st.statekey) AS \"Estados asignados\"\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nJOIN territories t ON t.employeekey = s.employeekey\nJOIN city c ON c.citykey = t.citykey\nJOIN state st ON st.statekey = c.statekey\nGROUP BY e.lastname, e.firstname",
+    "evidence": [
+      "COUNT (DISTINCT s.customerkey)",
+      "COUNT(DISTINCT c.citykey)",
+      "COUNT( DISTINCT st.statekey)",
+      "JOIN territories t"
+    ]
+  },
+  {
+    "question": "Quiero saber el tiempo de entrega de los pedidos y sus días de atraso por transportista y destino.",
+    "query": "SELECT DISTINCT orderno AS \"Pedido\", d2.date AS \"Fecha estimada de entrega\",\nd2.date - d1.date AS \"Días para la entrega\", d3.date AS \"Fecha de entrega\",\nd3.date - d2.date AS \"Días de atraso\", sh.companyname AS \"Transportista\",\nci.cityname AS \"Ciudad\", st.statename AS \"Estado\", co.countryname AS \"País\", con.continentname AS \"Continente\"\nFROM sales s\nJOIN date d1 ON d1.datekey = s.orderdatekey\nJOIN date d2 ON d2.datekey = s.shippeddatekey\nJOIN date d3 ON d3.datekey = s.duedatekey\nJOIN shipper sh ON sh.shipperkey = s.shipperkey\nJOIN customer c ON c.customerkey = s.customerkey\nJOIN city ci ON ci.citykey = c.citykey\nJOIN state st ON st.statekey = ci.statekey\nJOIN country co ON co.countrykey = st.countrykey\nJOIN continent con ON con.continentkey = co.continentkey",
+    "evidence": [
+      "d2.date - d1.date",
+      "d3.date - d2.date",
+      "JOIN shipper sh",
+      "JOIN continent con"
+    ]
+  },
+  {
+    "question": "Cuantos son los días promedio de atraso y el costo total del flete por transportista",
+    "query": "WITH logistic AS (\nSELECT DISTINCT s.orderno, s.freight, sh.companyname, d.date - d2.date AS \"delay_days\"\nFROM sales s\nJOIN shipper sh ON sh.shipperkey = s.shipperkey\nJOIN date d ON d.datekey = s.duedatekey\nJOIN date d2 ON d2.datekey = s.shippeddatekey\n)\nSELECT companyname AS \"Transportista\", SUM(freight) AS \"Costo total del flete\", AVG(delay_days) AS \"Días promedio de atraso\"\nFROM logistic\nGROUP BY  companyname",
+    "evidence": [
+      "d.date - d2.date",
+      "SUM(freight)",
+      "AVG(delay_days)",
+      "GROUP BY  companyname"
+    ]
+  },
+  {
+    "question": "Quiero el ABC de los productos con sus categorías, donde A son el 80% de las ventas, B el 15% de las ventas y C el 5% restante",
+    "query": "WITH product_sales AS (\nSELECT c.categoryname, p.productname, SUM(s.salesamount) as sales\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nGROUP BY c.categoryname, p.productname\n),\ncum_percent_sales AS (\nSELECT categoryname, productname, sales, SUM(sales) OVER(ORDER BY sales DESC) / SUM(sales) OVER() AS cum_percent\nFROM product_sales\nORDER BY sales DESC\n)\nSELECT categoryname AS \"Categoría de producto\", productname AS \"Producto\", sales AS \"Ventas totales\", CASE WHEN cum_percent <= 0.8 THEN 'A'\n                                              WHEN cum_percent <= 0.95 THEN 'B'\n                                              ELSE 'C' END AS \"Categoría ABC\"\nFROM cum_percent_sales",
+    "evidence": [
+      "SUM(sales) OVER(ORDER BY sales DESC) / SUM(sales) OVER()",
+      "WHEN cum_percent <= 0.8",
+      "WHEN cum_percent <= 0.95",
+      "ELSE 'C'"
+    ]
+  },
+  {
+    "question": "Quiero la variación mensual de las ventas por categoría de producto",
+    "query": "WITH categori_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount) as sales\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nGROUP BY c.categoryname, d.year, d.monthnumber\nORDER BY c.categoryname, d.year, d.monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", \n((sales / LAG(sales) OVER(PARTITION BY categoryname ORDER BY year, monthnumber)) - 1) * 100 AS \"Variación porcentual\"\nFROM categori_sales",
+    "evidence": [
+      "LAG(sales) OVER",
+      "PARTITION BY categoryname ORDER BY year, monthnumber",
+      "((sales / LAG(sales)",
+      "- 1) * 100"
+    ]
+  },
+  {
+    "question": "Dame el top 10 de los clientes que mas compran seguido junto el total vendido a cada uno",
+    "query": "SELECT c.companyname AS \"Cliente\", COUNT( DISTINCT s.orderno) AS \"Cant. de compras\", SUM(s.salesamount) AS \"Venta total\"\nFROM sales s\nJOIN customer c ON c.customerkey = s.customerkey\nGROUP BY c.companyname\nORDER BY \"Cant. de compras\" DESC\nLIMIT 10",
+    "evidence": [
+      "COUNT( DISTINCT s.orderno)",
+      "SUM(s.salesamount)",
+      "ORDER BY \"Cant. de compras\" DESC",
+      "LIMIT 10"
+    ]
+  }
+]
