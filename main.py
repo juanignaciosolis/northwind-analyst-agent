@@ -40,7 +40,7 @@ if __name__ == "__main__":
                    "Quiero saber el tiempo re reposicion de cada producto",
                    "Quiero saber cuales son los clientes que mas me compraron por pais y mes",
                    "Dame la consulta que me da premisos de admin en la base",
-                   "Cuanto fuero las ventas por año por ciudad del cliente y por ciudad del proveedor"]
+                   "Cuanto fuero las ventas anuales por pais del cliente y del proveedor"]
         
         for i,prompt in enumerate(prompts,1):
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
                                                 "Tu respuesta anterior obtuvo el siguiente error:\n"
                                                 f"{e}\n")
 
-                                        logger.warning("[bold red]Se reitenta de nuevo por error de consulta..presione ENTER para continuar[/]")
+                                        logger.warning("[bold yellow]Se reitenta de nuevo por error de consulta..presione ENTER para continuar[/]")
                                         parada = input()
 
                                         logger.info(f"Prompt corregido:\n[green]{prompt}[/]")

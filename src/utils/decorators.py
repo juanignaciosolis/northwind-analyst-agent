@@ -9,6 +9,7 @@ import requests
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter, Field
 import json
+from src.utils.errors import EmptyRespondError
 
 RespuestaUnion = Annotated[
     Union[SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme],
@@ -42,14 +43,19 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
                     if schema_error:
                         prompt_modificado = prompt_base + (
                             "\n\n# ERROR\n"
-                            "Tu respuesta anterior no respetó la estructura obligatoria. Los esquemas de respuesta permitidos son\n"
+                            f"Tu respuesta anterior no respetó la estructura obligatoria. Error: {schema_error}\n"
+                            "Los esquemas de respuesta permitidos son:\n"
                             "## RESPUESTA con 'sql_success':\n" 
                             f"{SQL_SCHEMA_STR}\n"
                             "## RESPUESTA con 'invalid_query':\n"
-                            f"{INV_SCHEMA_STR   }")
+                            f"{INV_SCHEMA_STR   }\n"
+                            "Generá una nueva respuesta distinta analizando de nuevo todo el contexto provisto")
                         kwargs["prompt"] = prompt_modificado
 
                     resultado = func(*args, **kwargs)
+
+                    if resultado.text is None:
+                        raise EmptyRespondError
 
                     if isinstance(resultado.text, (SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme)):
                             respuesta = resultado.text
@@ -62,6 +68,16 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
                         logger.info(f"Llama exitosa en {intento} intentos. Error reportado")
                     return resultado
                 except ValidationError as e:
+                    logger.error(f"[bold yellow]Llamada fallida: {e}, intento {intento}, se vuelve a intentar...[/]")
+                    potencia = delay ** intento
+                    if intento == max_intentos:
+                        break
+                    intento += 1
+                    schema_error = e 
+                    logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
+                    time.sleep(potencia)
+
+                except EmptyRespondError as e:
                     logger.error(f"[bold yellow]Llamada fallida: {e}, intento {intento}, se vuelve a intentar...[/]")
                     potencia = delay ** intento
                     if intento == max_intentos:
