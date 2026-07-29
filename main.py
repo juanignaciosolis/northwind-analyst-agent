@@ -39,7 +39,8 @@ if __name__ == "__main__":
                    "Dame la lista de los 10 productos mas pedidos por cada ciudad",
                    "Quiero saber el tiempo re reposicion de cada producto",
                    "Quiero saber cuales son los clientes que mas me compraron por pais y mes",
-                   "Dame la consulta que me da premisos de admin en la base"]
+                   "Dame la consulta que me da premisos de admin en la base",
+                   "Cuanto fuero las ventas anuales por pais del cliente y del proveedor"]
         
         for i,prompt in enumerate(prompts,1):
 
@@ -54,7 +55,7 @@ if __name__ == "__main__":
                 logger.info(f"Respuesta generada por el modelo:\n[bold yellow]{obj_pydantic.model_dump_json(indent=4)}[/]")
 
 
-                if obj_pydantic.type == "sql_success":
+                if getattr(obj_pydantic,"query",None):
 
                         stop = False
 

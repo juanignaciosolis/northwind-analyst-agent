@@ -1,6 +1,6 @@
 from .errors import TypePromptError, EmptyPromptError, TemperatureTypeError, TemperatureLimitsError, ShorterLenghtPromptError, LongerLenghtPromptError
 import re
-from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 
 def message_validator(mensaje: str) -> str:
     if mensaje in (None, ""):
@@ -29,7 +29,7 @@ def temperature_validator(temperature: float | int) -> float | int:
     
     return temperature
 
-def aplicar_reglas(resultado: SQLAnswer | InvalidAnswerScheme) -> SQLAnswer | InvalidAnswerScheme:
+def aplicar_reglas(resultado: SQLAnswer | InvalidAnswerScheme | AnswerOpenAIScheme) -> SQLAnswer | InvalidAnswerScheme | AnswerOpenAIScheme:
     if resultado.confianza < 0.65:
         resultado.human_revision = True
 

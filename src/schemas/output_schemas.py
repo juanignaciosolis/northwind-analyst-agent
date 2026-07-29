@@ -10,7 +10,7 @@ from typing import Literal, Optional
 
 class SQLAnswer(BaseModel):
     type: Literal["sql_success"] = Field(default="sql_success",
-        description="Identificador para respuestas SQL válidas")
+        description="Identificador solo para respuestas SQL válidas")
     query: str = Field(description="Consulta SQL que responde la pregunta del usuario",
                        max_length= 500)
     human_revision: bool = Field(description="Establecer en True cuando la pregunta sea ambigua, no hay suficientes datos para responderla")
@@ -22,7 +22,7 @@ class SQLAnswer(BaseModel):
 class InvalidAnswerScheme(BaseModel):
     type: Literal["invalid_query"] = Field(
         default="invalid_query",
-        description="Identificador para respuestas donde no se pudo generar la consulta")
+        description="Identificador solo para respuestas donde no se pudo generar la consulta")
     error: str = Field(description="Titulo del error, problema o inconveniente")
     resumen: str = Field(description="Descripcion sencilla y corta del error, problema o incoveniente",
                          max_length= 300)
@@ -35,9 +35,9 @@ class InvalidAnswerScheme(BaseModel):
     ) 
 
 class AnswerOpenAIScheme(BaseModel):
-    type: Literal["sql_success", "invalid_query"] = Field(
-        description="Indica 'sql_success' si se pudo generar la consulta, o 'invalid_query' si ocurrió un error o ambigüedad."
-    )
+    type: Literal["OpenAI_scheme"] = Field(
+        default="OpenAI_scheme",
+        description="Identificador del esquema de respuesta en OpenAI")
     
     # Campos para caso de Éxito (sql_success)
     query: Optional[str] = Field(

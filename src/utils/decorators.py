@@ -4,13 +4,18 @@ logger = logging.getLogger("agent_logger.tokenomics")
 
 import functools
 import time
-from typing import Callable, Any
+from typing import Callable, Any, Annotated, Union
 import requests
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
-from pydantic import ValidationError, TypeAdapter
+from pydantic import ValidationError, TypeAdapter, Field
 import json
 
-answer_validator_router = TypeAdapter( SQLAnswer | InvalidAnswerScheme | AnswerOpenAIScheme)
+RespuestaUnion = Annotated[
+    Union[SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme],
+    Field(discriminator='type')
+]
+
+answer_validator_router = TypeAdapter(RespuestaUnion)
 
 SQL_SCHEMA_STR = json.dumps(SQLAnswer.model_json_schema(), ensure_ascii=False)
 INV_SCHEMA_STR = json.dumps(InvalidAnswerScheme.model_json_schema(), ensure_ascii=False)
@@ -45,32 +50,38 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
                         kwargs["prompt"] = prompt_modificado
 
                     resultado = func(*args, **kwargs)
-                    respuesta = answer_validator_router.validate_python(resultado.text)
+
+                    if isinstance(resultado.text, (SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme)):
+                            respuesta = resultado.text
+                    else:
+                            respuesta = answer_validator_router.validate_python(resultado.text)
+
                     if isinstance(respuesta, SQLAnswer):                 
                         logger.info(f"Llama exitosa en {intento} intentos. Consulta SQL devuelta")
                     else:
                         logger.info(f"Llama exitosa en {intento} intentos. Error reportado")
                     return resultado
                 except ValidationError as e:
-                    logger.warning(f"Llamada fallida: {e}, intento {intento}, se vuelve a intentar...")
+                    logger.error(f"[bold yellow]Llamada fallida: {e}, intento {intento}, se vuelve a intentar...[/]")
                     potencia = delay ** intento
                     if intento == max_intentos:
                         break
                     intento += 1
                     schema_error = e
-                    logger.warning(f"Se esperan {potencia} segundos antes de reintentar")
+                    logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
                     time.sleep(potencia)
+
                 except Exception as e:
-                    logger.warning(f"Llamada fallida: {e}, intento {intento}, se vuelve a intentar...")
+                    logger.error(f"[bold yellow]Llamada fallida: {e}, intento {intento}, se vuelve a intentar...[/]")
                     potencia = delay ** intento
                     if intento == max_intentos:
                         break
                     intento += 1
-                    logger.warning(f"Se esperan {potencia} segundos antes de reintentar")
+                    logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
                     time.sleep(potencia)
             
-            logger.error(f"Se acabaron todos lo intentos. En total {max_intentos}")
-            raise Exception("Máximo de intentos fallidos en la API.")
+            logger.error(f"[bold red]Se acabaron todos lo intentos. En total {max_intentos}[/]")
+            #raise Exception("Máximo de intentos fallidos en la API.")
         
         return wrapper
     return decorator

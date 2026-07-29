@@ -22,3 +22,7 @@ class TemperatureLimitsError(Exception):
 class TemperatureTypeError(Exception):
     def __init__(self,message = "La temperatura debe ser un numero"):
         super().__init__(message)
+
+class EmptyRespondError(Exception):
+    def __init__(self,message = "La respuesta del modelo es vacia (None)"):
+        super().__init__(message)
