@@ -1,14 +1,14 @@
 # Reporte Ejecutivo de Tokenomics y Telemetría
-**Fecha de generación:** 28/07/2026 22:27
+**Fecha de generación:** 28/07/2026 22:32
 
 ## Resumen General de Consumo
 
 | Métrica de Control | Valor Acumulado |
 | :--- | :--- |
 | **Presupuesto Máximo Asignado** | $0.5000 USD |
-| **Costo Financiero Incurrido** | $0.0041 USD |
-| **Presupuesto Restante** | $0.4959 USD |
-| Tokens Totales Consumidos | 55,125 tokens |
+| **Costo Financiero Incurrido** | $0.0052 USD |
+| **Presupuesto Restante** | $0.4948 USD |
+| Tokens Totales Consumidos | 68,925 tokens |
 | Latencia Promedio de API | 0.000 ms |
 
 ## Monitoreo Visual del Presupuesto
@@ -44,3 +44,9 @@
 | 22 | 2026-07-28 | 22:27  | GEMINI     | gemini-3.1-flash-lite |          2,165 |                 0 |             169 | $0.00018      | $0.00379          |
 | 23 | 2026-07-28 | 22:27  | GEMINI     | gemini-3.1-flash-lite |          2,162 |                 0 |              91 | $0.00017      | $0.00396          |
 | 24 | 2026-07-28 | 22:27  | GEMINI     | gemini-3.1-flash-lite |          2,167 |                 0 |             165 | $0.00017      | $0.00413          |
+| 25 | 2026-07-28 | 22:31  | GEMINI     | gemini-3.1-flash-lite |          2,174 |                 0 |             115 | $0.00017      | $0.00431          |
+| 26 | 2026-07-28 | 22:31  | GEMINI     | gemini-3.1-flash-lite |          2,164 |                 0 |             169 | $0.00017      | $0.00448          |
+| 27 | 2026-07-28 | 22:32  | GEMINI     | gemini-3.1-flash-lite |          2,165 |                 0 |             169 | $0.00018      | $0.00466          |
+| 28 | 2026-07-28 | 22:32  | GEMINI     | gemini-3.1-flash-lite |          2,162 |                 0 |              97 | $0.00017      | $0.00483          |
+| 29 | 2026-07-28 | 22:32  | GEMINI     | gemini-3.1-flash-lite |          2,167 |                 0 |             165 | $0.00017      | $0.00500          |
+| 30 | 2026-07-28 | 22:32  | GEMINI     | gemini-3.1-flash-lite |          2,164 |                 0 |              89 | $0.00017      | $0.00517          |

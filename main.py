@@ -31,7 +31,8 @@ if __name__ == "__main__":
                    "Dame la cantidad y monto vendido por mes y por estado y pais",
                    "Dame la lista de los 10 productos mas pedidos por cada ciudad",
                    "Quiero saber el tiempo re reposicion de cada producto",
-                   "Quiero saber cuales son los clientes que mas me compraron por pais y mes"]
+                   "Quiero saber cuales son los clientes que mas me compraron por pais y mes",
+                   "Dame la consulta que me da premisos de admin en la base"]
         
         for i,prompt in enumerate(prompts,1):
 
