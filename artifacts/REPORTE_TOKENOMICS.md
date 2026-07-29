@@ -1,14 +1,14 @@
 # Reporte Ejecutivo de Tokenomics y Telemetría
-**Fecha de generación:** 29/07/2026 18:21
+**Fecha de generación:** 29/07/2026 18:59
 
 ## Resumen General de Consumo
 
 | Métrica de Control | Valor Acumulado |
 | :--- | :--- |
 | **Presupuesto Máximo Asignado** | $1.2700 USD |
-| **Costo Financiero Incurrido** | $0.0484 USD |
-| **Presupuesto Restante** | $1.2216 USD |
-| Tokens Totales Consumidos | 208,900 tokens |
+| **Costo Financiero Incurrido** | $0.0712 USD |
+| **Presupuesto Restante** | $1.1988 USD |
+| Tokens Totales Consumidos | 299,871 tokens |
 | Latencia Promedio de API | 0.000 ms |
 
 ## Monitoreo Visual del Presupuesto
@@ -123,3 +123,47 @@
 | 101 | 2026-07-29 | 18:21  | GEMINI     | gemini-3.1-flash-lite |          1,864 |                 0 |              91 | $0.00049      | $0.04742          |
 | 102 | 2026-07-29 | 18:21  | GEMINI     | gemini-3.1-flash-lite |          1,869 |                 0 |             167 | $0.00051      | $0.04793          |
 | 103 | 2026-07-29 | 18:21  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |              88 | $0.00049      | $0.04842          |
+| 104 | 2026-07-29 | 18:24  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.04892          |
+| 105 | 2026-07-29 | 18:24  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             115 | $0.00052      | $0.04943          |
+| 106 | 2026-07-29 | 18:24  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |             166 | $0.00051      | $0.04994          |
+| 107 | 2026-07-29 | 18:24  | GEMINI     | gemini-3.1-flash-lite |          1,867 |                 0 |             169 | $0.00051      | $0.05045          |
+| 108 | 2026-07-29 | 18:24  | GEMINI     | gemini-3.1-flash-lite |          1,864 |                 0 |              82 | $0.00049      | $0.05094          |
+| 109 | 2026-07-29 | 18:24  | GEMINI     | gemini-3.1-flash-lite |          1,869 |                 0 |             167 | $0.00051      | $0.05145          |
+| 110 | 2026-07-29 | 18:24  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |              98 | $0.00049      | $0.05194          |
+| 111 | 2026-07-29 | 18:27  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.05244          |
+| 112 | 2026-07-29 | 18:27  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             118 | $0.00052      | $0.05295          |
+| 113 | 2026-07-29 | 18:27  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |             166 | $0.00051      | $0.05346          |
+| 114 | 2026-07-29 | 18:27  | GEMINI     | gemini-3.1-flash-lite |          1,867 |                 0 |             169 | $0.00051      | $0.05397          |
+| 115 | 2026-07-29 | 18:27  | GEMINI     | gemini-3.1-flash-lite |          1,864 |                 0 |              79 | $0.00049      | $0.05446          |
+| 116 | 2026-07-29 | 18:27  | GEMINI     | gemini-3.1-flash-lite |          1,869 |                 0 |             165 | $0.00051      | $0.05496          |
+| 117 | 2026-07-29 | 18:27  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |              94 | $0.00049      | $0.05545          |
+| 118 | 2026-07-29 | 18:38  | GEMINI     | gemini-3.1-flash-lite |          2,219 |                 0 |             115 | $0.00058      | $0.05604          |
+| 119 | 2026-07-29 | 18:38  | GEMINI     | gemini-3.1-flash-lite |          2,297 |                 0 |             116 | $0.00060      | $0.05664          |
+| 120 | 2026-07-29 | 18:38  | GEMINI     | gemini-3.1-flash-lite |          2,209 |                 0 |             169 | $0.00059      | $0.05724          |
+| 121 | 2026-07-29 | 18:38  | GEMINI     | gemini-3.1-flash-lite |          2,210 |                 0 |             169 | $0.00059      | $0.05783          |
+| 122 | 2026-07-29 | 18:38  | GEMINI     | gemini-3.1-flash-lite |          2,207 |                 0 |             103 | $0.00058      | $0.05841          |
+| 123 | 2026-07-29 | 18:39  | GEMINI     | gemini-3.1-flash-lite |          2,212 |                 0 |             165 | $0.00059      | $0.05900          |
+| 124 | 2026-07-29 | 18:39  | GEMINI     | gemini-3.1-flash-lite |          2,209 |                 0 |              91 | $0.00057      | $0.05958          |
+| 125 | 2026-07-29 | 18:47  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.06007          |
+| 126 | 2026-07-29 | 18:47  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             116 | $0.00052      | $0.06059          |
+| 127 | 2026-07-29 | 18:48  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |             178 | $0.00051      | $0.06110          |
+| 128 | 2026-07-29 | 18:48  | GEMINI     | gemini-3.1-flash-lite |          1,867 |                 0 |             169 | $0.00051      | $0.06161          |
+| 129 | 2026-07-29 | 18:48  | GEMINI     | gemini-3.1-flash-lite |          1,864 |                 0 |              87 | $0.00049      | $0.06210          |
+| 130 | 2026-07-29 | 18:48  | GEMINI     | gemini-3.1-flash-lite |          1,869 |                 0 |             165 | $0.00051      | $0.06261          |
+| 131 | 2026-07-29 | 18:48  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |              81 | $0.00049      | $0.06310          |
+| 132 | 2026-07-29 | 18:56  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.06359          |
+| 133 | 2026-07-29 | 18:57  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             116 | $0.00052      | $0.06411          |
+| 134 | 2026-07-29 | 18:57  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |             158 | $0.00051      | $0.06462          |
+| 135 | 2026-07-29 | 18:57  | GEMINI     | gemini-3.1-flash-lite |          1,867 |                 0 |             169 | $0.00051      | $0.06513          |
+| 136 | 2026-07-29 | 18:57  | GEMINI     | gemini-3.1-flash-lite |          1,864 |                 0 |              95 | $0.00049      | $0.06562          |
+| 137 | 2026-07-29 | 18:57  | GEMINI     | gemini-3.1-flash-lite |          1,869 |                 0 |             167 | $0.00051      | $0.06612          |
+| 138 | 2026-07-29 | 18:57  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |              83 | $0.00049      | $0.06661          |
+| 139 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.06711          |
+| 140 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             116 | $0.00052      | $0.06763          |
+| 141 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |             179 | $0.00051      | $0.06814          |
+| 142 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,867 |                 0 |             167 | $0.00051      | $0.06865          |
+| 143 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,864 |                 0 |              86 | $0.00049      | $0.06913          |
+| 144 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,869 |                 0 |             167 | $0.00051      | $0.06964          |
+| 145 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |              86 | $0.00049      | $0.07013          |
+| 146 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,870 |                 0 |             165 | $0.00051      | $0.07064          |
+| 147 | 2026-07-29 | 18:59  | GEMINI     | gemini-3.1-flash-lite |          1,920 |                 0 |             167 | $0.00052      | $0.07116          |
