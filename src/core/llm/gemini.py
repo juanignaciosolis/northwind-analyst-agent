@@ -11,7 +11,8 @@ from time import perf_counter
 
 
 from .base import LLMCliente, LLMResponse
-from src.utils.validators import prompt_constructor, temperature_validator
+from src.utils.validators import temperature_validator
+from src.prompts.user_prompt import prompt_constructor
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
@@ -35,6 +36,8 @@ class GeminiClient(LLMCliente):
     @retry_backoff(3,2)
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
+        prompt = prompt_constructor(prompt)
+
         logger.info("Se evia el mensaje por API")
 
         logger.info("Prompt: " + f"[orange3]{prompt}[/]")
@@ -43,7 +46,7 @@ class GeminiClient(LLMCliente):
         start = perf_counter()
         intereaction = self._client.models.generate_content(
             model=os.getenv("GEMINI_MODEL"),
-            contents= prompt_constructor(prompt),
+            contents= prompt,
             config= types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=SQLAnswer | InvalidAnswerScheme,

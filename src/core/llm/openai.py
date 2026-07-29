@@ -10,14 +10,12 @@ from typing import Optional
 
 
 from .base import LLMCliente, LLMResponse
-from src.utils.validators import prompt_constructor, temperature_validator
+from src.utils.validators import temperature_validator
+from src.prompts.user_prompt import prompt_constructor
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
-from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
-from pydantic import TypeAdapter
+from src.schemas.output_schemas import AnswerOpenAIScheme
 
-answer_validator_router = TypeAdapter(SQLAnswer | InvalidAnswerScheme)
-JSON_SCHEMA_UNIFICADO = answer_validator_router.json_schema()
 
 class OpenAIClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
@@ -36,6 +34,8 @@ class OpenAIClient(LLMCliente):
     @retry_backoff(3,2)
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
+        prompt = prompt_constructor(prompt)
+
         logger.info("Se evia el mensaje por API")
 
         logger.info("Prompt: " + f"[orange3]{prompt}[/]")
@@ -53,14 +53,14 @@ class OpenAIClient(LLMCliente):
         messages.append(
             {
                 "role": "user",
-                "content": prompt_constructor(prompt)
+                "content": prompt
             })
 
         start = perf_counter()
         interaction = self._client.beta.chat.completions.parse(
             model = os.getenv("OPENAI_MODEL"),
             messages= messages,
-            response_format= SQLAnswer | InvalidAnswerScheme,
+            response_format= AnswerOpenAIScheme,
             max_tokens = self.max_output_tokens
         )
 
@@ -70,12 +70,14 @@ class OpenAIClient(LLMCliente):
 
         usage = interaction.usage
 
+        parsed_response = interaction.choices[0].message.parsed
+
         reasoning_tokens = 0
         if usage and hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
             reasoning_tokens = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
 
         return LLMResponse(
-        text=interaction.choices[0].message.parsed, 
+        text=parsed_response, 
         provider=os.getenv("LLM_PROVIDER"),
         model=os.getenv("OPENAI_MODEL"),  
         latency=float(latency),

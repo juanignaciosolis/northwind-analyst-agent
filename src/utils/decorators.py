@@ -6,11 +6,11 @@ import functools
 import time
 from typing import Callable, Any
 import requests
-from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter
 import json
 
-answer_validator_router = TypeAdapter( SQLAnswer | InvalidAnswerScheme)
+answer_validator_router = TypeAdapter( SQLAnswer | InvalidAnswerScheme | AnswerOpenAIScheme)
 
 SQL_SCHEMA_STR = json.dumps(SQLAnswer.model_json_schema(), ensure_ascii=False)
 INV_SCHEMA_STR = json.dumps(InvalidAnswerScheme.model_json_schema(), ensure_ascii=False)

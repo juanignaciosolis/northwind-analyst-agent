@@ -5,7 +5,7 @@ logger: Logger = setup_logger(name=__name__)
 
 
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 
 class SQLAnswer(BaseModel):
@@ -33,3 +33,38 @@ class InvalidAnswerScheme(BaseModel):
         le=1.0,
         description="Confianza estimada entre 0 y 1."
     ) 
+
+class AnswerOpenAIScheme(BaseModel):
+    type: Literal["sql_success", "invalid_query"] = Field(
+        description="Indica 'sql_success' si se pudo generar la consulta, o 'invalid_query' si ocurrió un error o ambigüedad."
+    )
+    
+    # Campos para caso de Éxito (sql_success)
+    query: Optional[str] = Field(
+        default=None, 
+        description="Consulta SQL válida para PostgreSQL. Solo completar si type == 'sql_success'."
+    )
+    human_revision: Optional[bool] = Field(
+        default=None, 
+        description="True si la pregunta era ambigua. Solo completar si type == 'sql_success'."
+    )
+    confidence: Optional[float] = Field(
+        default=None, 
+        ge=0.0, 
+        le=1.0, 
+        description="Nivel de confianza entre 0 y 1."
+    )
+
+    # Campos para caso de Error (invalid_query)
+    error: Optional[str] = Field(
+        default=None, 
+        description="Título corto del problema. Solo completar si type == 'invalid_query'."
+    )
+    resumen: Optional[str] = Field(
+        default=None, 
+        description="Explicación sencilla del error. Solo completar si type == 'invalid_query'."
+    )
+    evidence: Optional[list[str]] = Field(
+        default=None, 
+        description="Extractos o palabras clave del prompt del usuario que causaron el error. Solo completar si type == 'invalid_query'."
+    )

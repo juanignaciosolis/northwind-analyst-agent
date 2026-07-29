@@ -2,7 +2,7 @@ from .errors import TypePromptError, EmptyPromptError, TemperatureTypeError, Tem
 import re
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
 
-def prompt_constructor(mensaje: str) -> str:
+def message_validator(mensaje: str) -> str:
     if mensaje in (None, ""):
         raise EmptyPromptError
     if not isinstance(mensaje, str):
@@ -14,9 +14,9 @@ def prompt_constructor(mensaje: str) -> str:
 
     mensaje = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", mensaje)
     
-    clean_prompt = mensaje.strip()
+    clean_mesagge = mensaje.strip()
     
-    return clean_prompt
+    return clean_mesagge
 
 
 def temperature_validator(temperature: float | int) -> float | int:
