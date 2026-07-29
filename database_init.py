@@ -19,7 +19,7 @@ db_password = os.getenv("DB_PASSWORD")
 db_name = os.getenv("DB_NAME")
 db_port = os.getenv("DB_PORT", "5432")
 
-SQL_FILE_PATH = Path(__file__).resolve() / "db" / "northwind.sql"
+SQL_FILE_PATH = Path(__file__).resolve().parent / "db" / "northwind.sql"
 
 if not SQL_FILE_PATH.exists():
     logger.error(f"No se encontró el archivo '{SQL_FILE_PATH}' en la raíz del proyecto.")

@@ -13,6 +13,11 @@ from .base import LLMCliente, LLMResponse
 from src.utils.validators import prompt_constructor, temperature_validator
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
+from pydantic import TypeAdapter
+
+answer_validator_router = TypeAdapter(SQLAnswer | InvalidAnswerScheme)
+JSON_SCHEMA_UNIFICADO = answer_validator_router.json_schema()
 
 class OpenAIClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
@@ -27,8 +32,8 @@ class OpenAIClient(LLMCliente):
 
         self._client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
 
-    auditar_tokenomics
-    retry_backoff(3,2)
+    @auditar_tokenomics
+    @retry_backoff(3,2)
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
         logger.info("Se evia el mensaje por API")
@@ -52,27 +57,32 @@ class OpenAIClient(LLMCliente):
             })
 
         start = perf_counter()
-        intereaction = self._client.responses.create(
+        interaction = self._client.beta.chat.completions.parse(
             model = os.getenv("OPENAI_MODEL"),
-            input = messages,
-            max_output_tokens = self.max_output_tokens
+            messages= messages,
+            response_format= SQLAnswer | InvalidAnswerScheme,
+            max_tokens = self.max_output_tokens
         )
 
         latency = round(perf_counter() - start,4)
 
         logger.info("Llamada exitosa!")
 
-        
+        usage = interaction.usage
+
+        reasoning_tokens = 0
+        if usage and hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
+            reasoning_tokens = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+
         return LLMResponse(
-            text = intereaction.output_text,
-            provider= os.getenv("LLM_PROVIDER"),
-            model = os.getenv("GEMINI_MODEL"),
-            latency= float(latency),
-            input_tokens= int(intereaction.usage.input_tokens or 0),
-            thinking_tokens= int(intereaction.usage.output_tokens_details.reasoning_tokens or 0),
-            output_tokens= int(intereaction.usage.output_tokens or 0),
-            total_tokens= int(intereaction.usage.total_tokens or 0)
+        text=interaction.choices[0].message.parsed, 
+        provider=os.getenv("LLM_PROVIDER"),
+        model=os.getenv("OPENAI_MODEL"),  
+        latency=float(latency),
+        input_tokens=int(usage.prompt_tokens if usage else 0), 
+        thinking_tokens=int(reasoning_tokens), 
+        output_tokens=int(usage.completion_tokens if usage else 0),
+        total_tokens=int(usage.total_tokens if usage else 0)
         )
-    
 
     

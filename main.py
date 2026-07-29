@@ -14,18 +14,14 @@ load_dotenv()
 from src.core.llm import get_llm_client
 from src.utils.database import execute_query, clean_sql_query
 from src.utils.tokenomics import generar_reporte_markdown
+from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 
 if __name__ == "__main__":
 
-        dir_actual = Path(__file__).resolve().parent
-        ruta_prompt = dir_actual / "system_prompt.txt"
 
-        try:
-                system_prompt_content = ruta_prompt.read_text(encoding="utf-8").strip()
-                logger.info(f"System prompt cargado con éxito desde {ruta_prompt.name}")
-        except FileNotFoundError:
-                logger.error(f"Error: No se encontró el archivo '{ruta_prompt.name}' en {dir_actual}")
-                system_prompt_content = None
+
+        system_prompt_content = few_shot_system_prompt()
+        logger.info(f"[bold yellow]System prompt cargado con éxito:[/]\n{system_prompt_content}")
 
 
         client = get_llm_client(system_prompt = system_prompt_content)
@@ -45,13 +41,18 @@ if __name__ == "__main__":
                 
                 respuesta = client.send_message(prompt=prompt)
 
-                consulta = clean_sql_query(respuesta.text)
+                obj_pydantic = respuesta.text
 
-                logger.info(f"Consulta generada por el modelo:\n[bold yellow]{consulta}[/]")
+                logger.info(f"Respuesta generada por el modelo:\n[bold yellow]{obj_pydantic.model_dump_json(indent=4)}[/]")
 
-                resultado = execute_query(consulta)
 
-                logger.info(resultado)
+                if obj_pydantic.type == "sql_success":
+
+                        consulta = clean_sql_query(obj_pydantic.query)
+
+                        resultado = execute_query(consulta)
+
+                        logger.info(resultado)
 
                 console = Console()
 

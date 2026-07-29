@@ -45,8 +45,8 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
                         kwargs["prompt"] = prompt_modificado
 
                     resultado = func(*args, **kwargs)
-                    resultado = answer_validator_router.validate_json(resultado)
-                    if isinstance(resultado, SQLAnswer):                 
+                    respuesta = answer_validator_router.validate_python(resultado.text)
+                    if isinstance(respuesta, SQLAnswer):                 
                         logger.info(f"Llama exitosa en {intento} intentos. Consulta SQL devuelta")
                     else:
                         logger.info(f"Llama exitosa en {intento} intentos. Error reportado")

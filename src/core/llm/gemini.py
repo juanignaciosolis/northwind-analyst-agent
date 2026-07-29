@@ -14,6 +14,7 @@ from .base import LLMCliente, LLMResponse
 from src.utils.validators import prompt_constructor, temperature_validator
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
 
 
 
@@ -44,6 +45,8 @@ class GeminiClient(LLMCliente):
             model=os.getenv("GEMINI_MODEL"),
             contents= prompt_constructor(prompt),
             config= types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=SQLAnswer | InvalidAnswerScheme,
                 temperature= temperature_validator(self.temperature),
                 max_output_tokens=self.max_output_tokens,
                 system_instruction=self.system_prompt))
@@ -53,7 +56,7 @@ class GeminiClient(LLMCliente):
         logger.info("Llamada exitosa!")
         
         return LLMResponse(
-            text = intereaction.text,
+            text = intereaction.parsed,
             provider= os.getenv("LLM_PROVIDER"),
             model = os.getenv("GEMINI_MODEL"),
             latency= float(latency),
