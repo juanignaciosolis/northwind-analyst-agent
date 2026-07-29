@@ -48,12 +48,13 @@ def execute_query(query: str, limit: int = 20) -> pd.DataFrame:
     # 2. Error Específico: Sintaxis SQL incorrecta (alucinaciones del LLM, tablas que no existen, campos mal escritos)
     except ProgrammingError as e:
         logger.error(f"[ERROR DE SINTAXIS/PROGRAMACIÓN SQL]: La query generada por el agente falló estructuralmente. Detalle: {e}")
-        return pd.DataFrame()
+        #return pd.DataFrame()
+        raise ProgrammingError(e) # Devuelve el error
 
     # 3. Error Específico: Tipos de datos inválidos (por ejemplo, pasar un string a un campo numérico)
     except DataError as e:
         logger.error(f"[ERROR DE DATOS SQL]: Los tipos de datos o restricciones de la query son inválidos. Detalle: {e}")
-        return pd.DataFrame()
+        raise DataError(e) # Devuelve el error
 
     # 4. Captura genérica: Cualquier otro error nativo de psycopg2
     except Error as e:

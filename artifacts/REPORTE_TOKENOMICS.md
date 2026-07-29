@@ -1,14 +1,14 @@
 # Reporte Ejecutivo de Tokenomics y Telemetría
-**Fecha de generación:** 29/07/2026 13:35
+**Fecha de generación:** 29/07/2026 14:48
 
 ## Resumen General de Consumo
 
 | Métrica de Control | Valor Acumulado |
 | :--- | :--- |
 | **Presupuesto Máximo Asignado** | $1.2700 USD |
-| **Costo Financiero Incurrido** | $0.0269 USD |
-| **Presupuesto Restante** | $1.2431 USD |
-| Tokens Totales Consumidos | 113,676 tokens |
+| **Costo Financiero Incurrido** | $0.0364 USD |
+| **Presupuesto Restante** | $1.2336 USD |
+| Tokens Totales Consumidos | 160,639 tokens |
 | Latencia Promedio de API | 0.000 ms |
 
 ## Monitoreo Visual del Presupuesto
@@ -77,3 +77,25 @@
 | 55 | 2026-07-29 | 13:34  | OPENAI     | gpt-4o-mini           |          2,449 |                 0 |              77 | $0.00038      | $0.02613          |
 | 56 | 2026-07-29 | 13:34  | OPENAI     | gpt-4o-mini           |          2,454 |                 0 |              72 | $0.00038      | $0.02651          |
 | 57 | 2026-07-29 | 13:35  | OPENAI     | gpt-4o-mini           |          2,452 |                 0 |              65 | $0.00038      | $0.02689          |
+| 58 | 2026-07-29 | 14:12  | OPENAI     | gpt-4o-mini           |          2,151 |                 0 |             192 | $0.00035      | $0.02724          |
+| 59 | 2026-07-29 | 14:12  | OPENAI     | gpt-4o-mini           |          2,141 |                 0 |             191 | $0.00035      | $0.02759          |
+| 60 | 2026-07-29 | 14:13  | OPENAI     | gpt-4o-mini           |          2,141 |                 0 |             125 | $0.00034      | $0.02793          |
+| 61 | 2026-07-29 | 14:13  | OPENAI     | gpt-4o-mini           |          2,138 |                 0 |              72 | $0.00033      | $0.02826          |
+| 62 | 2026-07-29 | 14:13  | OPENAI     | gpt-4o-mini           |          2,143 |                 0 |             116 | $0.00034      | $0.02860          |
+| 63 | 2026-07-29 | 14:15  | OPENAI     | gpt-4o-mini           |          2,141 |                 0 |              84 | $0.00033      | $0.02893          |
+| 64 | 2026-07-29 | 14:23  | OPENAI     | gpt-4o-mini           |          2,151 |                 0 |             112 | $0.00034      | $0.02927          |
+| 65 | 2026-07-29 | 14:24  | OPENAI     | gpt-4o-mini           |          2,141 |                 0 |             167 | $0.00035      | $0.02962          |
+| 66 | 2026-07-29 | 14:32  | OPENAI     | gpt-4o-mini           |          2,151 |                 0 |             115 | $0.00034      | $0.02996          |
+| 67 | 2026-07-29 | 14:33  | OPENAI     | gpt-4o-mini           |          2,151 |                 0 |             107 | $0.00034      | $0.03030          |
+| 68 | 2026-07-29 | 14:35  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.03079          |
+| 69 | 2026-07-29 | 14:36  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             118 | $0.00052      | $0.03131          |
+| 70 | 2026-07-29 | 14:36  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |             166 | $0.00051      | $0.03182          |
+| 71 | 2026-07-29 | 14:43  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.03232          |
+| 72 | 2026-07-29 | 14:44  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             118 | $0.00052      | $0.03283          |
+| 73 | 2026-07-29 | 14:47  | GEMINI     | gemini-3.1-flash-lite |          1,876 |                 0 |             115 | $0.00050      | $0.03333          |
+| 74 | 2026-07-29 | 14:47  | GEMINI     | gemini-3.1-flash-lite |          1,954 |                 0 |             115 | $0.00052      | $0.03385          |
+| 75 | 2026-07-29 | 14:47  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |             166 | $0.00051      | $0.03436          |
+| 76 | 2026-07-29 | 14:47  | GEMINI     | gemini-3.1-flash-lite |          1,867 |                 0 |             169 | $0.00051      | $0.03487          |
+| 77 | 2026-07-29 | 14:47  | GEMINI     | gemini-3.1-flash-lite |          1,864 |                 0 |              86 | $0.00049      | $0.03535          |
+| 78 | 2026-07-29 | 14:47  | GEMINI     | gemini-3.1-flash-lite |          1,869 |                 0 |             165 | $0.00051      | $0.03586          |
+| 79 | 2026-07-29 | 14:47  | GEMINI     | gemini-3.1-flash-lite |          1,866 |                 0 |              97 | $0.00049      | $0.03635          |

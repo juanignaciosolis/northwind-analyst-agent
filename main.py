@@ -18,9 +18,16 @@ from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_p
 
 if __name__ == "__main__":
 
+        console = Console()
 
+        console.print("[bold yellow]Elija sistem prompt...[/]", end=" ")
+        system = input()
 
-        system_prompt_content = few_shot_system_prompt()
+        if system.upper() == "ZERO":
+                system_prompt_content = zero_shot_system_prompt()
+        else:
+                system_prompt_content = few_shot_system_prompt()
+
         logger.info(f"[bold yellow]System prompt cargado con éxito:[/]\n{system_prompt_content}")
 
 
@@ -49,13 +56,37 @@ if __name__ == "__main__":
 
                 if obj_pydantic.type == "sql_success":
 
-                        consulta = clean_sql_query(obj_pydantic.query)
+                        stop = False
 
-                        resultado = execute_query(consulta)
+                        while stop == False:
+
+                                consulta = clean_sql_query(obj_pydantic.query)
+
+                                try:
+                                        resultado = execute_query(consulta)
+                                        stop = True
+
+                                except Exception as e:
+                                        prompt +=(
+                                                "\n\n# ERROR\n"
+                                                "Tu respuesta anterior obtuvo el siguiente error:\n"
+                                                f"{e}\n")
+
+                                        logger.warning("[bold red]Se reitenta de nuevo por error de consulta..presione ENTER para continuar[/]")
+                                        parada = input()
+
+                                        logger.info(f"Prompt corregido:\n[green]{prompt}[/]")
+
+                                        respuesta = client.send_message(prompt=prompt)
+
+                                        obj_pydantic = respuesta.text
+
+                                        logger.info(f"Respuesta reformulada por el modelo:\n[bold green]{obj_pydantic.model_dump_json(indent=4)}[/]")
+
+                                        consulta = clean_sql_query(obj_pydantic.query)
 
                         logger.info(resultado)
 
-                console = Console()
 
                 if i != len(prompts):
                         console.print("[bold yellow]Aprete enter para CONTINUAR...[/]", end="")
