@@ -1,9 +1,3 @@
-from logging import Logger
-from src.utils.logger import setup_logger
-
-logger: Logger = setup_logger(name=__name__)
-
-
 from src.utils.validators import message_validator
 
 def prompt_constructor(message: str) -> str:

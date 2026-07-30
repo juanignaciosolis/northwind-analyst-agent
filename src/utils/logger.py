@@ -1,18 +1,18 @@
 import logging
-import os
 from pathlib import Path
 from rich.logging import RichHandler
 
-def setup_logger(name: str = "agent_logger", log_file: str = "logs/app.log") -> logging.Logger:
+def setup_logger(log_file: str = "logs/app.log", 
+                 console_level: int = logging.INFO) -> logging.Logger:
     """
     Configura un logger unificado:
     - Consola: Formato estético y con colores usando Rich.
     - Archivo: Formato detallado en texto plano.
     """
-    log_path = Path(log_file)
+    log_path = Path(log_file)   
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    logger = logging.getLogger(name)
+    logger = logging.getLogger()
     logger.setLevel(logging.DEBUG) 
 
     if logger.hasHandlers():
@@ -29,7 +29,7 @@ def setup_logger(name: str = "agent_logger", log_file: str = "logs/app.log") -> 
         rich_tracebacks=True,  
         markup=True           
     )
-    console_handler.setLevel(logging.INFO)  
+    console_handler.setLevel(console_level)  
     console_handler.setFormatter(rich_formatter)
 
     file_handler = logging.FileHandler(log_path, encoding="utf-8")
@@ -40,5 +40,3 @@ def setup_logger(name: str = "agent_logger", log_file: str = "logs/app.log") -> 
     logger.addHandler(file_handler)
 
     return logger
-
-logger = setup_logger()

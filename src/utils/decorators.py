@@ -1,11 +1,11 @@
 import logging
+from logging import Logger
 
-logger = logging.getLogger("agent_logger.tokenomics")
+logger: Logger = logging.getLogger(__name__)
 
 import functools
 import time
 from typing import Callable, Any, Annotated, Union
-import requests
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter, Field
 import json

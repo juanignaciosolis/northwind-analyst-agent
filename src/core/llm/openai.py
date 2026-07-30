@@ -1,7 +1,7 @@
+import logging
 from logging import Logger
-from src.utils.logger import setup_logger
 
-logger: Logger = setup_logger(name=__name__)
+logger: Logger = logging.getLogger(__name__)
 
 from openai import OpenAI
 import os
@@ -21,7 +21,10 @@ class OpenAIClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
 
         logger.info("Se inicializa el cliente de OpenAI...")
-        logger.info(f"Configuracion:\nSystem Prompt - {"Contiene" if system_prompt else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
+
+        logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system_prompt else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
+
+        logger.debug(f"[bold yellow]System prompt cargado:[/]\n{system_prompt}")
      
         super().__init__(system_prompt, 
                          temperature_validator(temperature),
@@ -30,16 +33,15 @@ class OpenAIClient(LLMCliente):
 
         self._client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
 
+        logger.info("¡Éxito! Cliente instanciado")
+
     @auditar_tokenomics
     @retry_backoff(3,2)
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
         prompt = prompt_constructor(prompt)
 
-        logger.info("Se evia el mensaje por API")
-
-        logger.info("Prompt: " + f"[orange3]{prompt}[/]")
-
+        logger.debug("Prompt: " + f"[orange3]{prompt}[/]")
 
         messages = []
 
@@ -55,6 +57,8 @@ class OpenAIClient(LLMCliente):
                 "role": "user",
                 "content": prompt
             })
+
+        logger.info("Se evia el mensaje por API")
 
         start = perf_counter()
         interaction = self._client.beta.chat.completions.parse(
@@ -75,6 +79,8 @@ class OpenAIClient(LLMCliente):
         reasoning_tokens = 0
         if usage and hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
             reasoning_tokens = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+
+        logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{parsed_response.parsed.model_dump_json(indent=4)}[/]")
 
         return LLMResponse(
         text=parsed_response, 

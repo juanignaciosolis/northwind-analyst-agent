@@ -1,3 +1,4 @@
+import logging
 from logging import Logger
 from src.utils.logger import setup_logger
 
@@ -12,13 +13,15 @@ from rich.console import Console
 load_dotenv()
 
 from src.core.llm import get_llm_client
-from src.utils.database import execute_query, clean_sql_query
+from src.utils.database import execute_query, clean_sql_query, conection_db
 from src.utils.tokenomics import generar_reporte_markdown
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 
 if __name__ == "__main__":
 
         console = Console()
+
+        conn = conection_db()
 
         console.print("[bold yellow]Elija sistem prompt...[/]", end=" ")
         system = input()
@@ -28,11 +31,10 @@ if __name__ == "__main__":
         else:
                 system_prompt_content = few_shot_system_prompt()
 
-        logger.info(f"[bold yellow]System prompt cargado con éxito:[/]\n{system_prompt_content}")
 
 
         client = get_llm_client(system_prompt = system_prompt_content)
-        logger.info("¡Éxito! Cliente instanciado")
+        
 
         prompts = ["Dame el monto de ventas totales por dia junto con el promedio movil con una ventana de 3 dias centralizada",
                    "Dame la cantidad y monto vendido por mes y por estado y pais",
@@ -44,15 +46,11 @@ if __name__ == "__main__":
         
         for i,prompt in enumerate(prompts,1):
 
-                logger.info("="*54 + f"\nMENSAJE {i} DE {len(prompts)}\n" + "="*54)
-
-                logger.info("\nEnviando mensaje de prueba...")
-                
+                console.print("="*54 + f"\nMENSAJE {i} DE {len(prompts)}\n" + "="*54)
+               
                 respuesta = client.send_message(prompt=prompt)
 
                 obj_pydantic = respuesta.text
-
-                logger.info(f"Respuesta generada por el modelo:\n[bold yellow]{obj_pydantic.model_dump_json(indent=4)}[/]")
 
 
                 if getattr(obj_pydantic,"query",None):
@@ -64,7 +62,7 @@ if __name__ == "__main__":
                                 consulta = clean_sql_query(obj_pydantic.query)
 
                                 try:
-                                        resultado = execute_query(consulta)
+                                        resultado = execute_query(conn=conn,query=consulta)
                                         stop = True
 
                                 except Exception as e:

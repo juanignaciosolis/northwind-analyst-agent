@@ -1,11 +1,4 @@
-from logging import Logger
-from src.utils.logger import setup_logger
-
-logger: Logger = setup_logger(name=__name__)
-
-
 from pathlib import Path
-from src.schemas.output_schemas import setup_logger
 import json
 
 

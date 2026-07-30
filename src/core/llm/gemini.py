@@ -1,7 +1,7 @@
+import logging
 from logging import Logger
-from src.utils.logger import setup_logger
 
-logger: Logger = setup_logger(name=__name__)
+logger: Logger = logging.getLogger(__name__)
 
 from google import genai
 from google.genai import types
@@ -23,8 +23,10 @@ class GeminiClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
 
         logger.info("Se inicializa el cliente de Gemini...")
-        logger.info(f"Configuracion:\nSystem Prompt - {"Contiene" if system_prompt else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
 
+        logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system_prompt else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
+
+        logger.debug(f"[bold yellow]System prompt cargado:[/]\n{system_prompt}")
 
         super().__init__(system_prompt, 
                          temperature,
@@ -32,16 +34,17 @@ class GeminiClient(LLMCliente):
 
         self._client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
+        logger.info("¡Éxito! Cliente instanciado")
+
     @auditar_tokenomics
     @retry_backoff(3,2)
     def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
 
         prompt = prompt_constructor(prompt)
 
+        logger.debug("Prompt del usuario: " + f"[orange3]{prompt}[/]")
+
         logger.info("Se evia el mensaje por API")
-
-        logger.info("Prompt: " + f"[orange3]{prompt}[/]")
-
 
         start = perf_counter()
         intereaction = self._client.models.generate_content(
@@ -57,7 +60,9 @@ class GeminiClient(LLMCliente):
         latency = round(perf_counter() - start,4)
 
         logger.info("Llamada exitosa!")
-        
+
+        logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{intereaction.parsed.model_dump_json(indent=4)}[/]")
+
         return LLMResponse(
             text = intereaction.parsed,
             provider= os.getenv("LLM_PROVIDER"),

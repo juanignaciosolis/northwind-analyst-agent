@@ -2,7 +2,7 @@ import logging
 from logging import Logger
 from src.utils.logger import setup_logger
 
-logger: Logger = setup_logger(name=__name__)
+logger: Logger = setup_logger(name=__name__, console_level=logging.WARNING)
 
 from dotenv import load_dotenv
 from pathlib import Path

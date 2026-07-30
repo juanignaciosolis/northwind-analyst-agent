@@ -1,4 +1,3 @@
-
 class EmptyPromptError(Exception):
     def __init__(self,message = "El prompt del usuario no puede estar vacio"):
         super().__init__(message)
