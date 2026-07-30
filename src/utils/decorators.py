@@ -5,11 +5,13 @@ logger: Logger = logging.getLogger(__name__)
 
 import functools
 import time
+import os
 from typing import Callable, Any, Annotated, Union
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter, Field
 import json
 from src.utils.errors import EmptyRespondError
+from src.core.llm.base import LLMResponse
 
 RespuestaUnion = Annotated[
     Union[SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme],
@@ -97,7 +99,17 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
                     time.sleep(potencia)
             
             logger.error(f"[bold red]Se acabaron todos lo intentos. En total {max_intentos}[/]")
-            #raise Exception("Máximo de intentos fallidos en la API.")
+
+            return LLMResponse(
+            text=None, 
+            provider=os.getenv("LLM_PROVIDER", "Unknown"), 
+            model=os.getenv("GEMINI_MODEL", "Unknown"),
+            latency= getattr(resultado,"latency",0), 
+            input_tokens=getattr(resultado,"input_tokens",0), 
+            thinking_tokens=getattr(resultado,"thinking_tokens",0), 
+            output_tokens=getattr(resultado,"output_tokens",0), 
+            total_tokens=getattr(resultado,"total_tokens",0)
+        )
         
         return wrapper
     return decorator

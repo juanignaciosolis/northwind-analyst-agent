@@ -99,6 +99,9 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         respuesta = func(*args, **kwargs)
+
+        if respuesta is None:
+            return respuesta 
         
         model = getattr(respuesta, "model")
         input_tokens = getattr(respuesta, "input_tokens", 0)

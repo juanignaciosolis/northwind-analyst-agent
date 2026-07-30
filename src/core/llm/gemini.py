@@ -16,7 +16,7 @@ from src.prompts.user_prompt import prompt_constructor
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
-
+from src.utils.errors import EmptyRespondError
 
 
 class GeminiClient(LLMCliente):
@@ -46,30 +46,52 @@ class GeminiClient(LLMCliente):
 
         logger.info("Se evia el mensaje por API")
 
-        start = perf_counter()
-        intereaction = self._client.models.generate_content(
-            model=os.getenv("GEMINI_MODEL"),
-            contents= prompt,
-            config= types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=SQLAnswer | InvalidAnswerScheme,
-                temperature= temperature_validator(self.temperature),
-                max_output_tokens=self.max_output_tokens,
-                system_instruction=self.system_prompt))
+        try:
 
-        latency = round(perf_counter() - start,4)
+            start = perf_counter()
+            intereaction = self._client.models.generate_content(
+                model=os.getenv("GEMINI_MODEL"),
+                contents= prompt,
+                config= types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=SQLAnswer | InvalidAnswerScheme,
+                    temperature= temperature_validator(self.temperature),
+                    max_output_tokens=self.max_output_tokens,
+                    system_instruction=self.system_prompt))
 
-        logger.info("Llamada exitosa!")
+            latency = round(perf_counter() - start,4)
 
-        logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{intereaction.parsed.model_dump_json(indent=4)}[/]")
+            logger.info("Llamada exitosa!")
 
-        return LLMResponse(
-            text = intereaction.parsed,
-            provider= os.getenv("LLM_PROVIDER"),
-            model = os.getenv("GEMINI_MODEL"),
-            latency= float(latency),
-            input_tokens= int(intereaction.usage_metadata.prompt_token_count or 0),
-            thinking_tokens= int(intereaction.usage_metadata.thoughts_token_count or 0),
-            output_tokens= int(intereaction.usage_metadata.candidates_token_count or 0),
-            total_tokens= int(intereaction.usage_metadata.total_token_count or 0)
-        )
+            logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{intereaction.parsed.model_dump_json(indent=4)}[/]")
+
+            return LLMResponse(
+                text = intereaction.parsed,
+                provider= os.getenv("LLM_PROVIDER"),
+                model = os.getenv("GEMINI_MODEL"),
+                latency= float(latency),
+                input_tokens= int(intereaction.usage_metadata.prompt_token_count or 0),
+                thinking_tokens= int(intereaction.usage_metadata.thoughts_token_count or 0),
+                output_tokens= int(intereaction.usage_metadata.candidates_token_count or 0),
+                total_tokens= int(intereaction.usage_metadata.total_token_count or 0)
+            )
+        
+        except Exception as e:
+            latency = round(perf_counter() - start, 4)
+            logger.error(f"Error el parseo de la respuesta: {e}")
+            
+            if intereaction and hasattr(intereaction, 'usage_metadata'):
+  
+                return LLMResponse(
+                    text=None,
+                    provider=os.getenv("LLM_PROVIDER"),
+                    model=os.getenv("GEMINI_MODEL"),
+                    latency= float(latency),
+                    input_tokens= int(intereaction.usage_metadata.prompt_token_count or 0),
+                    thinking_tokens= int(intereaction.usage_metadata.thoughts_token_count or 0),
+                    output_tokens= int(intereaction.usage_metadata.candidates_token_count or 0),
+                    total_tokens= int(intereaction.usage_metadata.total_token_count or 0)
+                )
+            
+            # Si intereaction es None, la llamada falló antes de recibir respuesta (0 tokens)
+            raise EmptyRespondError

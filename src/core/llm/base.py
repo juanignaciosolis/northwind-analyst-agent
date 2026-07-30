@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional
 
 @dataclass(frozen=True)
 class LLMResponse:
-    text: str
+    
     provider: str
     model: str
     latency: int
@@ -11,6 +12,7 @@ class LLMResponse:
     thinking_tokens: int
     output_tokens: int
     total_tokens: int
+    text: Optional[str] = None
 
 
 

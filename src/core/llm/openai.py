@@ -15,6 +15,7 @@ from src.prompts.user_prompt import prompt_constructor
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import AnswerOpenAIScheme
+from src.utils.errors import EmptyRespondError
 
 
 class OpenAIClient(LLMCliente):
@@ -60,37 +61,54 @@ class OpenAIClient(LLMCliente):
 
         logger.info("Se evia el mensaje por API")
 
-        start = perf_counter()
-        interaction = self._client.beta.chat.completions.parse(
-            model = os.getenv("OPENAI_MODEL"),
-            messages= messages,
-            response_format= AnswerOpenAIScheme,
-            max_tokens = self.max_output_tokens
-        )
+        try:
+            start = perf_counter()
+            interaction = self._client.beta.chat.completions.parse(
+                model = os.getenv("OPENAI_MODEL"),
+                messages= messages,
+                response_format= AnswerOpenAIScheme,
+                max_tokens = self.max_output_tokens
+            )
 
-        latency = round(perf_counter() - start,4)
+            latency = round(perf_counter() - start,4)
 
-        logger.info("Llamada exitosa!")
+            logger.info("Llamada exitosa!")
 
-        usage = interaction.usage
+            usage = interaction.usage
 
-        parsed_response = interaction.choices[0].message.parsed
+            parsed_response = interaction.choices[0].message.parsed
 
-        reasoning_tokens = 0
-        if usage and hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
-            reasoning_tokens = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+            reasoning_tokens = 0
+            if usage and hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
+                reasoning_tokens = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
 
-        logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{parsed_response.parsed.model_dump_json(indent=4)}[/]")
+            logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{parsed_response.parsed.model_dump_json(indent=4)}[/]")
 
-        return LLMResponse(
-        text=parsed_response, 
-        provider=os.getenv("LLM_PROVIDER"),
-        model=os.getenv("OPENAI_MODEL"),  
-        latency=float(latency),
-        input_tokens=int(usage.prompt_tokens if usage else 0), 
-        thinking_tokens=int(reasoning_tokens), 
-        output_tokens=int(usage.completion_tokens if usage else 0),
-        total_tokens=int(usage.total_tokens if usage else 0)
-        )
+            return LLMResponse(
+            text=parsed_response, 
+            provider=os.getenv("LLM_PROVIDER"),
+            model=os.getenv("OPENAI_MODEL"),  
+            latency=float(latency),
+            input_tokens=int(usage.prompt_tokens if usage else 0), 
+            thinking_tokens=int(reasoning_tokens), 
+            output_tokens=int(usage.completion_tokens if usage else 0),
+            total_tokens=int(usage.total_tokens if usage else 0)
+            )
+        except Exception as e:
+            latency = round(perf_counter() - start, 4)
+            logger.error(f"Error en la interacción con OpenAI: {e}")
 
-    
+            if interaction and hasattr(interaction, 'usage'):
+                usage = interaction.usage
+                return LLMResponse(
+                    text=None,
+                    provider=os.getenv("LLM_PROVIDER"),
+                    model=os.getenv("OPENAI_MODEL"),
+                    latency=float(latency),
+                    input_tokens=int(usage.prompt_tokens or 0),
+                    thinking_tokens=0, 
+                    output_tokens=int(usage.completion_tokens or 0),
+                    total_tokens=int(usage.total_tokens or 0)
+                )
+
+            raise EmptyRespondError

@@ -13,69 +13,44 @@ import pandas as pd
 
 load_dotenv()
 
+class DatabaseManager:
+    def __init__(self):
+        self.conn = None
 
-def conection_db() -> None:
-    try:
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            port=os.getenv("DB_PORT")
-        )
+    def __enter__(self):
+        """Se ejecuta al entrar al bloque 'with'"""
+        try:
+            self.conn = psycopg2.connect(
+                host=os.getenv("DB_HOST"),
+                database=os.getenv("DB_NAME"),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
+                port=os.getenv("DB_PORT")
+            )
+            logger.info(f"Conexión a {os.getenv('DB_NAME')} establecida.")
+        except Exception as e:
+            logger.error(f"Error de conexión: {e}")
+            raise e
+        return self
 
-        logger.info(f"Conexion a la DB: {os.getenv('DB_NAME')} exitosa!!")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Se ejecuta al salir del bloque 'with', garantizando el cierre"""
+        if self.conn:
+            self.conn.close()
+            logger.info("Conexión a la DB cerrada.")
 
-        # Error Específico: Falla la conexión (credenciales mal puestas, server apagado, puerto bloqueado)   
-    except OperationalError as e:
-        logger.error(f"[ERROR DE CONEXIÓN]: No se pudo conectar a PostgreSQL. Verificá tu archivo .env o si el servicio local está activo. Detalle: {e}")
-        return pd.DataFrame()    
-
-    return conn
-
-
-def execute_query(conn: PGConnection, query: str, limit: int = 20) -> pd.DataFrame:
-
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query)
-            
-            filas = cursor.fetchall()
-
-            columnas = [desc[0] for desc in cursor.description]
-
-            tabla = pd.DataFrame(filas, columns=columnas)
-
-            tabla_limitada = tabla.head(limit)
-            
-            logger.info(f"Consulta ejecutada  Se recuperaron {tabla.shape[0]} filas (Límite máximo configurado: {limit}).")
-            return tabla_limitada
-        
-
-    # 1. Error Específico: Sintaxis SQL incorrecta (alucinaciones del LLM, tablas que no existen, campos mal escritos)
-    except ProgrammingError as e:
-        logger.error(f"[ERROR DE SINTAXIS/PROGRAMACIÓN SQL]: La query generada por el agente falló estructuralmente. Detalle: {e}")
-        #return pd.DataFrame()
-        raise ProgrammingError(e) # Devuelve el error
-
-    # 2. Error Específico: Tipos de datos inválidos (por ejemplo, pasar un string a un campo numérico)
-    except DataError as e:
-        logger.error(f"[ERROR DE DATOS SQL]: Los tipos de datos o restricciones de la query son inválidos. Detalle: {e}")
-        raise DataError(e) # Devuelve el error
-
-    # 3. Captura genérica: Cualquier otro error nativo de psycopg2
-    except Error as e:
-        logger.error(f"[ERROR DB GENERAL]: Ocurrió un error inesperado en el driver de base de datos. Detalle: {e}")
-        return pd.DataFrame()
-
-    # 4. Caída de emergencia: Errores imprevistos de Python
-    except Exception as e:
-        logger.error(f"[ERROR INESPERADO]: Falla general en el módulo de base de datos. Detalle: {e}")
-        return pd.DataFrame()        
-    finally:
-        # 4. Limpieza de conexiones
-        if conn:
-            conn.close()
+    def execute(self, query: str, limit: int = 20) -> pd.DataFrame:
+        """Gestiona el cursor y las transacciones de forma segura"""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(query)
+                filas = cursor.fetchall()
+                columnas = [desc[0] for desc in cursor.description]
+                return pd.DataFrame(filas, columns=columnas).head(limit)
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"Error en consulta: {e}")
+            raise e
 
 def clean_sql_query(raw_query: str) -> str:
     """
