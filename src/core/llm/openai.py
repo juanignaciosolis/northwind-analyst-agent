@@ -96,7 +96,7 @@ class OpenAIClient(LLMCliente):
             )
         except Exception as e:
             latency = round(perf_counter() - start, 4)
-            logger.error(f"Error en la interacción con OpenAI: {e}")
+            logger.error(f"Error el parseo de la respuesta: {e}")
 
             if interaction and hasattr(interaction, 'usage'):
                 usage = interaction.usage

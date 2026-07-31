@@ -10,7 +10,6 @@ from typing import Callable, Any, Annotated, Union
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter, Field
 import json
-from src.utils.errors import EmptyRespondError
 from src.core.llm.base import LLMResponse
 
 RespuestaUnion = Annotated[
@@ -56,9 +55,6 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
 
                     resultado = func(*args, **kwargs)
 
-                    if resultado.text is None:
-                        raise EmptyRespondError
-
                     if isinstance(resultado.text, (SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme)):
                             respuesta = resultado.text
                     else:
@@ -76,16 +72,6 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
                         break
                     intento += 1
                     schema_error = e 
-                    logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
-                    time.sleep(potencia)
-
-                except EmptyRespondError as e:
-                    logger.error(f"[bold yellow]Llamada fallida: {e}, intento {intento}, se vuelve a intentar...[/]")
-                    potencia = delay ** intento
-                    if intento == max_intentos:
-                        break
-                    intento += 1
-                    schema_error = e
                     logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
                     time.sleep(potencia)
 

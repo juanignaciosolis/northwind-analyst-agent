@@ -64,7 +64,26 @@ def gerenate_rich_response(response_obj):
         content_group = Group(metadata, "[bold cyan]Query:[/]", sql_syntax)
     else:
         # Si no hay query, mostramos el error o mensaje
-        error_msg = getattr(response_obj, 'error', 'Sin consulta devuelta')
+        error_msg = getattr(response_obj, 'error', 'Sin detalle disponible')
         content_group = Group(metadata, f"[red]Estado:[/ ] {error_msg}")
 
     return content_group
+
+def format_sql_query( raw_query: str)-> str:
+
+    if raw_query:
+        # 2. Formatear la SQL (reindentación automática y palabras clave en MAYÚSCULAS)
+        formatted_sql = sqlparse.format(
+            raw_query, 
+            reindent=True, 
+            keyword_case='upper'
+        )
+        
+        # 3. Crear el objeto Syntax de Rich para colores
+        # theme="monokai" es excelente para SQL en terminales oscuras
+        syntax = Syntax(formatted_sql, "sql", theme="monokai", line_numbers=False)
+        
+        # 4. Imprimir
+        return syntax
+    else:
+        return "No hay consulta SQL para este este resultado"
