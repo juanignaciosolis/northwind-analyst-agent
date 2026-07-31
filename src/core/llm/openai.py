@@ -16,7 +16,7 @@ from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import AnswerOpenAIScheme
 from src.utils.errors import EmptyRespondError
-
+from pydantic import ValidationError
 
 class OpenAIClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
@@ -76,13 +76,20 @@ class OpenAIClient(LLMCliente):
 
             usage = interaction.usage
 
-            parsed_response = interaction.choices[0].message.parsed
+            message = interaction.choices[0].message
 
+            try:
+                parsed_response = interaction.choices[0].message.parsed    
+            except:
+                parsed_response = interaction.choices[0].message.content
+                
             reasoning_tokens = 0
             if usage and hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
                 reasoning_tokens = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
 
-            logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{parsed_response.parsed.model_dump_json(indent=4)}[/]")
+            logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{parsed_response.model_dump_json(indent=4)}[/]")
+
+            print("Respuesta del modelo", parsed_response)
 
             return LLMResponse(
             text=parsed_response, 
@@ -100,8 +107,14 @@ class OpenAIClient(LLMCliente):
 
             if interaction and hasattr(interaction, 'usage'):
                 usage = interaction.usage
-                return LLMResponse(
-                    text=None,
+
+            if message.content:
+                text = message.content
+            else:
+                text = None
+
+            return LLMResponse(
+                    text=text,
                     provider=os.getenv("LLM_PROVIDER"),
                     model=os.getenv("OPENAI_MODEL"),
                     latency=float(latency),
@@ -110,5 +123,3 @@ class OpenAIClient(LLMCliente):
                     output_tokens=int(usage.completion_tokens or 0),
                     total_tokens=int(usage.total_tokens or 0)
                 )
-
-            raise EmptyRespondError

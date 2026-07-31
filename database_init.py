@@ -1,12 +1,15 @@
-from logging import Logger
+import logging
 from src.utils.logger import setup_logger
 
-logger: Logger = setup_logger(name=__name__)
+setup_logger()
 
 import os
 import psycopg2
 from dotenv import load_dotenv
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
 
 # Cargar configuración desde el .env
 load_dotenv()

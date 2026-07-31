@@ -46,6 +46,7 @@ class DatabaseManager:
                 cursor.execute(query)
                 filas = cursor.fetchall()
                 columnas = [desc[0] for desc in cursor.description]
+                logger.info("Consulta ejecutada con exito!.")
                 return pd.DataFrame(filas, columns=columnas).head(limit)
         except Exception as e:
             self.conn.rollback()

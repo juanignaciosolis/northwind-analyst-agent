@@ -73,7 +73,7 @@ CREATE TABLE Product(
 	ProductKey int NOT NULL,
 	ProductName varchar(40) NOT NULL,
 	QuantityPerUnit varchar(20) NULL,
-	UnitPrice money NULL,
+	UnitPrice real NULL,
 	Discontinued bit NOT NULL,
 	CategoryKey int NULL,
 	CONSTRAINT PK_Product_ProductKey PRIMARY KEY (ProductKey)
@@ -126,11 +126,11 @@ CREATE TABLE Sales(
 	SupplierKey int NULL,
 	OrderNo int NOT NULL,
 	OrderLineNo int NOT NULL,
-	UnitPrice money NOT NULL, -- Castear a decimal cuando se ocupe
+	UnitPrice real NOT NULL,
 	Quantity smallint NOT NULL,
 	Discount real NOT NULL,
-	SalesAmount money NOT NULL, -- Castear a decimal cuando se ocupe
-	Freight money NOT NULL -- Castear a decimal cuando se ocupe
+	SalesAmount real NOT NULL,
+	Freight real NOT NULL
 );
 
 /****** Table Shipper ******/

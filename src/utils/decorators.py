@@ -58,7 +58,7 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
                     if isinstance(resultado.text, (SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme)):
                             respuesta = resultado.text
                     else:
-                            respuesta = answer_validator_router.validate_python(resultado.text)
+                            respuesta = answer_validator_router.validate_json(resultado.text)
 
                     if isinstance(respuesta, SQLAnswer):                 
                         logger.info(f"Llama exitosa en {intento} intentos. Consulta SQL devuelta")

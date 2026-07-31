@@ -1,12 +1,10 @@
 import logging
-from logging import Logger
 from src.utils.logger import setup_logger
 
 setup_logger(console_level= logging.WARNING)
 
 from dotenv import load_dotenv
 from pathlib import Path
-import os
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -14,11 +12,14 @@ from rich import box
 import json
 from typing import Optional, Any
 from dataclasses import dataclass
+import pandas as pd
 
 from src.core.llm import get_llm_client
 from src.utils.database import  DatabaseManager, clean_sql_query
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.utils.helpers import format_sql_query
+from tests.eval_tool import equal_dataframes
+from src.utils.helpers import generate_rich_table
 
 logger = logging.getLogger(__name__)
 
@@ -52,83 +53,108 @@ client = get_llm_client(system_prompt = system_prompt_content)
 
 resultados = []
 
-for numero,test in enumerate(datos,1):
+with DatabaseManager() as db:
 
-    console.rule(f"[bold blue]MENSAJE {numero} DE {len(datos)}[/]",style="blue",characters="*")
+    for numero,test in enumerate(datos,1):
 
-    pregunta = test["question"]
+        console.rule(f"[bold blue]MENSAJE {numero} DE {len(datos)}[/]",style="blue",characters="*")
 
-    console.print(f"[bold yellow]Pregunta: {pregunta}[/]\n")
+        pregunta = test["question"]
 
-    respuesta = client.send_message(pregunta)
+        console.print(f"[bold yellow]Pregunta: {pregunta}[/]\n")
 
-    if respuesta.text is None:
+        respuesta = client.send_message(pregunta)
 
-        resultado = EvaluationRecord(
-            pregunta= pregunta,
-            respuesta_esperada= test["query"],
-            respuesta= None,
-            acierto= False,
-            latencia= respuesta.latency,
-            tokens_input= respuesta.input_tokens,
-            thinking= respuesta.thinking_tokens,
-            outputs= respuesta.output_tokens,
-            total_tokens= respuesta.total_tokens
-        )
-    else:
-        evidencias_lower = [e.lower() for e in test["evidence"]]
-        if any(evidencia in  respuesta.text.query.lower() for evidencia in evidencias_lower):
-            acierto = True
-        else:
-            acierto = False
+        df_python = json.loads(test["result"])
+        df_esperado = pd.DataFrame(df_python)
 
-        resultado = EvaluationRecord(
+        if respuesta.text is None:
+
+            resultado = EvaluationRecord(
                 pregunta= pregunta,
                 respuesta_esperada= test["query"],
-                respuesta= respuesta.text.query,
-                acierto= acierto,
+                respuesta= None,
+                acierto= False,
                 latencia= respuesta.latency,
                 tokens_input= respuesta.input_tokens,
                 thinking= respuesta.thinking_tokens,
                 outputs= respuesta.output_tokens,
                 total_tokens= respuesta.total_tokens
             )
-    
-    resultados.append(resultado)
+        else:
+            respuesta_curada = clean_sql_query(respuesta.text.query)
 
-    sql_esperado = format_sql_query(test["query"])
+            df = db.execute(respuesta_curada, limit= 10)
 
-    sql_real = format_sql_query(resultado.respuesta) if resultado.respuesta else "[bold red]⚠ No se pudo obtener una respuesta válida[/bold red]"
+            acierto = equal_dataframes(df, df_esperado)
 
-    console.print(f"[bold]Evidencias buscadas: {test["evidence"]}[/]\n")
+            resultado = EvaluationRecord(
+                    pregunta= pregunta,
+                    respuesta_esperada= test["query"],
+                    respuesta= respuesta.text.query,
+                    acierto= acierto,
+                    latencia= respuesta.latency,
+                    tokens_input= respuesta.input_tokens,
+                    thinking= respuesta.thinking_tokens,
+                    outputs= respuesta.output_tokens,
+                    total_tokens= respuesta.total_tokens
+                )
+        
+        resultados.append(resultado)
 
-    if acierto:
-        console.print("[bold green][ACIERTO] EL AGENTE RESPONDIO CORRECTAMENTE[/]\n")
-    else:
-        console.print("[bold red][FALLO] EL AGENTE NO RESPONDIO CORRECTAMENTE[/]\n")
+        sql_esperado = format_sql_query(test["query"])
 
+        sql_real = format_sql_query(respuesta.text.query) if resultado.respuesta else "[bold red]⚠ No se pudo obtener una respuesta válida[/bold red]"
 
-    tabla = Table(show_header=True, header_style="bold white", box=None, expand=True)
-    tabla.add_column("SQL Esperado", justify="left")
-    tabla.add_column("SQL Generado", justify="left")
+        tabla = Table(show_header=True, header_style="bold white", box=None, expand=True)
+        tabla.add_column("Consulta Esperada", justify="left")
+        tabla.add_column("Consulta Generada", justify="left")
 
-    # 4. Agregar la fila
-    tabla.add_row(sql_esperado, sql_real)
+        # 4. Agregar la fila
+        tabla.add_row(sql_esperado,sql_real)
 
-    # 5. Imprimir Panel
-    console.print(
-        Panel(
-            tabla,
-            title="[bold white]Comparativa SQL[/]",
-            border_style="dark_orange3",
-            box=box.HEAVY,
-            padding=(1, 1)
+        # 5. Imprimir Panel
+        console.print(
+            Panel(
+                tabla,
+                title="[bold white]Comparativa Consultas SQL[/]",
+                border_style="cyan",
+                box=box.HEAVY,
+                padding=(1, 1)
+            )
         )
-    )
 
-    console.print("[bold violet]Aprete enter para CONTINUAR con la siguiente pregunta...[/]", end="\n")
+        df_esperado = generate_rich_table(df_esperado)
 
-    stop = input()
+        df_real = generate_rich_table(df) if resultado.respuesta else "[bold red]⚠ No se pudo obtener una respuesta válida[/bold red]"
+
+        if resultado.acierto:
+            console.print("[bold green][ACIERTO] EL AGENTE RESPONDIO CORRECTAMENTE[/]\n")
+        else:
+            console.print("[bold red][FALLO] EL AGENTE NO RESPONDIO CORRECTAMENTE[/]\n")
+
+
+        tabla = Table(show_header=True, header_style="bold white", box=None, expand=True)
+        tabla.add_column("Resultado Esperado", justify="left")
+        tabla.add_column("Resultado Generado", justify="left")
+
+        # 4. Agregar la fila
+        tabla.add_row(df_esperado, df_real)
+
+        # 5. Imprimir Panel
+        console.print(
+            Panel(
+                tabla,
+                title="[bold white]Comparativa DataFrames[/]",
+                border_style="dark_orange3",
+                box=box.HEAVY,
+                padding=(1, 1)
+            )
+        )
+
+        console.print("[bold violet]Aprete enter para CONTINUAR con la siguiente pregunta...[/]", end="\n")
+
+        stop = input()
 
     
 

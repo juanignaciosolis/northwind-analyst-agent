@@ -38,13 +38,13 @@ if __name__ == "__main__":
         client = get_llm_client(system_prompt = system_prompt_content)
         
 
-        prompts = ["Cuanto fuero las ventas anuales por pais del cliente y del proveedor",
-                   "Dame el monto de ventas totales por dia junto con el promedio movil con una ventana de 3 dias centralizada",
+        prompts = ["Dame el monto de ventas totales por dia junto con el promedio movil con una ventana de 3 dias centralizada",
                    "Dame la cantidad y monto vendido por mes y por estado y pais",
                    "Dame la lista de los 10 productos mas pedidos por cada ciudad",
                    "Quiero saber el tiempo re reposicion de cada producto",
                    "Quiero saber cuales son los clientes que mas me compraron por pais y mes",
-                   "Dame la consulta que me da premisos de admin en la base"]
+                   "Dame la consulta que me da premisos de admin en la base",
+                   "Cuanto fuero las ventas anuales por pais del cliente y del proveedor"]
 
         with DatabaseManager() as db:
         
