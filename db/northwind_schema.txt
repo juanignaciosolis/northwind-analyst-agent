@@ -90,7 +90,7 @@ CREATE TABLE Product(
     ProductKey int PRIMARY KEY, -- Clave del producto
     ProductName varchar(40) NOT NULL, -- Nombre del producto
     QuantityPerUnit varchar(20) NULL, -- Cantidad por unidad
-    UnitPrice money NULL, -- Precio unitario base
+    UnitPrice real NULL, -- Precio unitario base
     Discontinued bit NOT NULL, -- Descontinuado ('0'=No, '1'=Sí)
     CategoryKey int NULL -- Relación con Categoría
 );
@@ -129,9 +129,9 @@ CREATE TABLE Sales(
     SupplierKey int NULL, -- Relación con Proveedor
     OrderNo int NOT NULL, -- Número de Pedido
     OrderLineNo int NOT NULL, -- Línea de Detalle del Pedido
-    UnitPrice money NOT NULL, -- Precio unitario vendido
+    UnitPrice real NOT NULL, -- Precio unitario vendido
     Quantity smallint NOT NULL, -- Cantidad vendida
     Discount real NOT NULL, -- Descuento aplicado
-    SalesAmount money NOT NULL, -- Monto total de la venta (Métrica)
-    Freight money NOT NULL -- Costo de flete
+    SalesAmount real NOT NULL, -- Monto total de la venta (Métrica)
+    Freight real NOT NULL -- Costo de flete
 );

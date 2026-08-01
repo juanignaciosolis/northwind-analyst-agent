@@ -49,15 +49,23 @@ system_prompt_content = zero_shot_system_prompt()
 
 console.print("[bold yellow]=[/]"*35,"[bold yellow]INICIO DE TEST[/]","[bold yellow]=[/]"*35,"\n\n")
 
+console.print("[bold yellow]Elija sistem prompt...[/]", end=" ")
+system = input()
+
+if system.upper() == "ZERO":
+    system_prompt_content = zero_shot_system_prompt()
+else:
+    system_prompt_content = few_shot_system_prompt()
+
 client = get_llm_client(system_prompt = system_prompt_content)
 
 resultados = []
 
 with DatabaseManager() as db:
 
-    for numero,test in enumerate(datos,1):
+    for numero,test in enumerate(datos[:2],1):
 
-        console.rule(f"[bold blue]MENSAJE {numero} DE {len(datos)}[/]",style="blue",characters="*")
+        console.rule(f"[bold blue]\nMENSAJE {numero} DE {len(datos)}[/]",style="blue",characters="*")
 
         pregunta = test["question"]
 
@@ -152,9 +160,10 @@ with DatabaseManager() as db:
             )
         )
 
-        console.print("[bold violet]Aprete enter para CONTINUAR con la siguiente pregunta...[/]", end="\n")
+    stop = input()
+    console.print("[bold violet]Aprete enter para FINALIZAR y generar reporte...[/]", end="\n")
 
-        stop = input()
+    print(resultados)
 
     
 

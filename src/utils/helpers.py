@@ -65,7 +65,10 @@ def gerenate_rich_response(response_obj):
     else:
         # Si no hay query, mostramos el error o mensaje
         error_msg = getattr(response_obj, 'error', 'Sin detalle disponible')
-        content_group = Group(metadata, f"[red]Estado:[/ ] {error_msg}")
+        resumen_msg = getattr(response_obj, 'resumen', 'Sin detalle disponible')
+        content_group = Group(metadata, 
+                              f"[red]Estado:[/ ] {error_msg}", 
+                              f"[yellow]Resumen:[/ ] {resumen_msg}")
 
     return content_group
 
