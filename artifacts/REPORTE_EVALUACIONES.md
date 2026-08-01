@@ -1,0 +1,17 @@
+# 📊 Reporte Histórico de Evaluaciones (Evals)
+
+Última actualización: `2026-08-01 15:21:00`
+
+## 📈 Tendencia de Precisión
+![Evolución de Precisión](precision_evolucion.png)
+
+---
+
+## 📝 Historial de Ejecuciones Acumuladas
+
+| fecha               | provedor   | modelo                | system_promt   |   latencia_promedio |   casos |   aciertos |   sin_respuesta |   mal_formadas | precision   | p_sin_respuesta   | p_mal_formadas   |
+|:--------------------|:-----------|:----------------------|:---------------|--------------------:|--------:|-----------:|----------------:|---------------:|:------------|:------------------|:-----------------|
+| 2026-08-01 14:17:00 | GEMINI     | gemini-3.1-flash-lite | ZERO SHOTS     |             1.58801 |      22 |          3 |               9 |             10 | 13.6%       | 40.9%             | 45.5%            |
+| 2026-08-01 15:06:00 | OPENAI     | gpt-4o-mini           | ZERO SHOTS     |             2.019   |      22 |          2 |               1 |             19 | 9.1%        | 4.5%              | 86.4%            |
+| 2026-08-01 15:11:00 | GEMINI     | gemini-3.1-flash-lite | FEW SHOTS      |             1.84704 |      22 |          3 |              10 |              9 | 13.6%       | 45.5%             | 40.9%            |
+| 2026-08-01 15:21:00 | GEMINI     | gemini-3.1-flash-lite | ZERO SHOTS     |             1.3064  |      22 |          3 |               9 |             10 | 13.6%       | 40.9%             | 45.5%            |

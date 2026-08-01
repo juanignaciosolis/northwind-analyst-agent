@@ -1,6 +1,7 @@
 from rich.table import Table
 from rich import box
 import pandas as pd
+from rich.console import Console
 from rich.console import Group
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -90,3 +91,85 @@ def format_sql_query( raw_query: str)-> str:
         return syntax
     else:
         return "No hay consulta SQL para este este resultado"
+
+def imprimir_tabla_evaluacion(resumen: dict) -> None:
+    """
+    Imprime una tabla elegante en consola con el resumen de evaluación de un agente.
+    
+    Args:
+        resumen (dict): Diccionario con los campos de métricas y configuración.
+    """
+    console = Console()
+
+    # 1. Crear la tabla con título estilizado
+    tabla = Table(
+        title="📊 [bold cyan]REPORTE DE EVALUACIÓN DE AGENTE[/bold cyan]",
+        box=box.ROUNDED,
+        header_style="bold magenta",
+        show_header=True,
+        title_justify="center"
+    )
+
+    # 2. Definir las columnas principales
+    tabla.add_column("Métrica / Parámetro", style="bold white", width=25)
+    tabla.add_column("Valor", justify="left")
+    tabla.add_column("Detalle / Porcentaje", justify="right")
+
+    # --- SECCIÓN 1: CONFIGURACIÓN Y EXPERIMENTO ---
+    tabla.add_row(
+        "📅 Fecha", 
+        str(resumen.get("fecha", "-")), 
+        "[dim]Ejecución[/dim]"
+    )
+    tabla.add_row(
+        "🤖 Proveedor / Modelo", 
+        f"{resumen.get('provedor', '-')} / [bold green]{resumen.get('modelo', '-')}[/bold green]", 
+        "[dim]LLM Client[/dim]"
+    )
+    tabla.add_row(
+        "⚡ Latencia Promedio", 
+        f"[yellow]{resumen.get('latencia_promedio', 0):,.2f} ms[/yellow]", 
+        "[dim]Tiempo resp.[/dim]"
+    )
+    
+    # Formateamos el system prompt para que no rompa el ancho de la pantalla si es largo
+    sys_prompt = str(resumen.get("system_promt", "-"))
+    sys_prompt_corto = sys_prompt[:35] + "..." if len(sys_prompt) > 35 else sys_prompt
+    tabla.add_row("🧠 System Prompt", sys_prompt_corto, "[dim]Config[/dim]")
+
+    tabla.add_section()  # Línea separadora visual
+
+    # --- SECCIÓN 2: VOLUMEN DE PRUEBAS ---
+    tabla.add_row(
+        "🧪 Casos Totales", 
+        f"[bold]{resumen.get('casos', 0)}[/bold]", 
+        "100.0%"
+    )
+    
+    # --- SECCIÓN 3: RESULTADOS Y RENDIMIENTO ---
+    aciertos = resumen.get("aciertos", 0)
+    precision = resumen.get("precision", 0.0)
+    tabla.add_row(
+        "✅ Aciertos", 
+        f"[green]{aciertos}[/green]", 
+        f"[green bold]{precision*100:.1f}%[/green bold]"
+    )
+
+    sin_resp = resumen.get("sin_respuesta", 0)
+    p_sin_resp = resumen.get("p_sin_respuesta", 0.0)
+    tabla.add_row(
+        "🟡 Sin Respuesta", 
+        f"[yellow]{sin_resp}[/yellow]", 
+        f"[yellow]{p_sin_resp*100:.1f}%[/yellow]"
+    )
+
+    mal_form = resumen.get("mal_formadas", 0)
+    p_mal_form = resumen.get("p_mal_formadas", 0.0)
+    tabla.add_row(
+        "❌ Mal Formadas", 
+        f"[red]{mal_form}[/red]", 
+        f"[red]{p_mal_form*100:.1f}%[/red]"
+    )
+
+    # 3. Imprimir en consola
+    console.print(tabla)

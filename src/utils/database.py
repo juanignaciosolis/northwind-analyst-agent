@@ -58,6 +58,9 @@ def clean_sql_query(raw_query: str) -> str:
     Limpia los bloques de código Markdown y normaliza los saltos de línea
     para que la query quede en una sola línea plana de texto ejecutable.
     """
+    if not raw_query or not isinstance(raw_query, str):
+        return None
+    
     clean_query = raw_query.strip()
     
     if clean_query.startswith("```sql"):

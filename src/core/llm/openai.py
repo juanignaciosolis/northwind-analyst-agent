@@ -89,8 +89,6 @@ class OpenAIClient(LLMCliente):
 
             logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{parsed_response.model_dump_json(indent=4)}[/]")
 
-            print("Respuesta del modelo", parsed_response)
-
             return LLMResponse(
             text=parsed_response, 
             provider=os.getenv("LLM_PROVIDER"),

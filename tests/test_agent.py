@@ -13,13 +13,17 @@ import json
 from typing import Optional, Any
 from dataclasses import dataclass
 import pandas as pd
+from datetime import datetime
+import os
 
 from src.core.llm import get_llm_client
 from src.utils.database import  DatabaseManager, clean_sql_query
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.utils.helpers import format_sql_query
 from tests.eval_tool import equal_dataframes
-from src.utils.helpers import generate_rich_table
+from src.utils.helpers import generate_rich_table, imprimir_tabla_evaluacion
+from tests.evaluation_history import registrar_evaluacion
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +51,7 @@ console = Console()
 
 system_prompt_content = zero_shot_system_prompt()
 
-console.print("[bold yellow]=[/]"*35,"[bold yellow]INICIO DE TEST[/]","[bold yellow]=[/]"*35,"\n\n")
+console.rule("[bold yellow]INICIO DE TEST[/]",style="yellow",characters="=")
 
 console.print("[bold yellow]Elija sistem prompt...[/]", end=" ")
 system = input()
@@ -63,7 +67,7 @@ resultados = []
 
 with DatabaseManager() as db:
 
-    for numero,test in enumerate(datos[:2],1):
+    for numero,test in enumerate(datos,1):
 
         console.rule(f"[bold blue]\nMENSAJE {numero} DE {len(datos)}[/]",style="blue",characters="*")
 
@@ -89,10 +93,42 @@ with DatabaseManager() as db:
                 outputs= respuesta.output_tokens,
                 total_tokens= respuesta.total_tokens
             )
+
+        elif respuesta.text.query is None:
+
+            resultado = EvaluationRecord(
+                pregunta= pregunta,
+                respuesta_esperada= test["query"],
+                respuesta= None,
+                acierto= False,
+                latencia= respuesta.latency,
+                tokens_input= respuesta.input_tokens,
+                thinking= respuesta.thinking_tokens,
+                outputs= respuesta.output_tokens,
+                total_tokens= respuesta.total_tokens
+            )           
+
         else:
             respuesta_curada = clean_sql_query(respuesta.text.query)
 
-            df = db.execute(respuesta_curada, limit= 10)
+            for i in range(3):
+
+                try:
+                    
+                    df = db.execute(respuesta_curada, limit= 10)
+
+                    break
+
+                except Exception as e:
+                    logger.error(f"Se produjo el siguiente error al ejecutar la query: {e}. Se intenta de nuevo")
+
+                    pregunta +=("\n\n# ERROR\n"
+                            "Tu respuesta anterior obtuvo el siguiente error:\n"
+                            f"{e}\n")
+                    respuesta = client.send_message(pregunta)
+
+                    respuesta_curada = clean_sql_query(respuesta.text.query)
+
 
             acierto = equal_dataframes(df, df_esperado)
 
@@ -160,10 +196,42 @@ with DatabaseManager() as db:
             )
         )
 
-    stop = input()
-    console.print("[bold violet]Aprete enter para FINALIZAR y generar reporte...[/]", end="\n")
+console.rule("[bold violet]Aprete enter para FINALIZAR y generar reporte...[/]",style="violet   ",characters="=")
+stop = input()
 
-    print(resultados)
+fecha =  datetime.now().strftime("%Y-%m-%d %H:%M")
+proveedor = os.getenv("LLM_PROVIDER",None)
+modelo = os.getenv("GEMINI_MODEL", None) if proveedor == "GEMINI" else os.getenv("OPENAI_MODEL")
+system_prompt = "ZERO SHOTS" if system.upper() == "ZERO" else "FEW SHOTS"
+latencia_promedio = sum(resultado.latencia for resultado in resultados) / len(resultados)
+casos = len(resultados)
+aciertos = sum(resultado.acierto for resultado in resultados)
+sin_respuesta = sum(1 for resultado in resultados if resultado.respuesta is None)
+mal_formadas = casos - aciertos - sin_respuesta
+precision = aciertos / casos
+p_sin_respuesta = sin_respuesta / casos
+p_mal_formadas = mal_formadas / casos
+
+resumen = {
+    "fecha": fecha,
+    "provedor": proveedor,
+    "modelo": modelo,
+    "system_promt": system_prompt,
+    "latencia_promedio": latencia_promedio,
+    "casos": casos,
+    "aciertos": aciertos,
+    "sin_respuesta": sin_respuesta,
+    "mal_formadas": mal_formadas,
+    "precision": precision,
+    "p_sin_respuesta": p_sin_respuesta,
+    "p_mal_formadas": p_mal_formadas
+}
+
+imprimir_tabla_evaluacion(resumen)
+
+logger.debug(f"Se corre una evalaucion del agente con los siguientes resultados: {resumen}")
+
+registrar_evaluacion(resumen)
 
     
 

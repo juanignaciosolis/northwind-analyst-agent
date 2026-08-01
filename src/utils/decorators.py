@@ -29,6 +29,8 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
 
+            resultado = None
+
             prompt_base = kwargs.get("prompt","")
 
             schema_error = None
@@ -90,11 +92,11 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
             text=None, 
             provider=os.getenv("LLM_PROVIDER", "Unknown"), 
             model=os.getenv("GEMINI_MODEL", "Unknown"),
-            latency= getattr(resultado,"latency",0), 
-            input_tokens=getattr(resultado,"input_tokens",0), 
-            thinking_tokens=getattr(resultado,"thinking_tokens",0), 
-            output_tokens=getattr(resultado,"output_tokens",0), 
-            total_tokens=getattr(resultado,"total_tokens",0)
+            latency= getattr(resultado,"latency",0) if resultado is not None else 0, 
+            input_tokens=getattr(resultado,"input_tokens",0) if resultado is not None else 0, 
+            thinking_tokens=getattr(resultado,"thinking_tokens",0) if resultado is not None else 0, 
+            output_tokens=getattr(resultado,"output_tokens",0) if resultado is not None else 0, 
+            total_tokens=getattr(resultado,"total_tokens",0) if resultado is not None else 0
         )
         
         return wrapper
