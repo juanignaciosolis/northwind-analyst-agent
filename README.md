@@ -1,141 +1,140 @@
 # Northwind Analyst Agent
 
-**Northwind Analyst Agent** es un agente de inteligencia artificial de nivel empresarial especializado en analítica de datos (*Text-to-SQL*) e ingeniería de software modular. Este sistema actúa como un puente inteligente entre usuarios de negocio y un repositorio de datos masivo, abstrayendo la complejidad de las consultas técnicas mediante traducción precisa de lenguaje natural a código SQL optimizado y ejecutable en **PostgreSQL 17**.
+**Northwind Analyst Agent** is an enterprise-grade AI agent specialized in data analytics (*Text-to-SQL*) and modular software engineering. This system acts as an intelligent bridge between business users and a large database, removing the complexity of technical queries by accurately translating natural language into optimized SQL code executable on **PostgreSQL 17**.
 
 ---
 
-### 📌 Estado del Proyecto & Contexto Académico
-*Este repositorio constituye el **Trabajo Final integrador** para la aprobación de la **Certificación Profesional en AI Agentic Developer** dictada por el **ITBA (Instituto Tecnológico de Buenos Aires)**. Actualmente, el proyecto se encuentra **en desarrollo activo**, sirviendo como plataforma de consolidación progresiva para arquitecturas complejas de orquestación, gobernanza financiera de modelos, telemetría avanzada y patrones de diseño analíticos de vanguardia.*
+### 📌 Project Status & Academic Context
+*This repository serves as the **Final Capstone Project** for completing the **AI Agentic Developer Professional Certification** at **ITBA (Instituto Tecnológico de Buenos Aires)**. Currently under **active development**, the project acts as a hands-on platform to build complex orchestration architectures, model financial governance, advanced telemetry, and modern analytical design patterns.*
 
 ---
 
-## 🎯 Enfoque de Ingeniería
-*Este repositorio no es un simple script de automatización ni un wrapper básico de APIs. Está diseñado desde cero bajo estándares de arquitectura limpia y patrones de diseño corporativos con un objetivo claro: demostrar las habilidades críticas de un **AI Agentic Developer Senior**.*
+## 🎯 Engineering Approach
+*This repository is not a simple automation script or a basic API wrapper. It is built from scratch following clean architecture standards and software design patterns to demonstrate the key skills of a Senior **AI Agentic Developer**.*
 
-* **Diseño Orientado a la Producción (Production-Ready):** Separación absoluta de responsabilidades. Los clientes de modelos de lenguaje, el motor logístico de base de datos, la telemetría contable y las interfaces de visualización interactúan de manera desacoplada mediante abstracciones e inyección de dependencias.
-* **Observabilidad y Gobernanza (FinOps):** Implementación nativa de auditoría de costos e interceptación transparente del ciclo de vida del agente. Ninguna llamada al modelo ocurre a ciegas; cada token de procesamiento cognitivo y de entrada/salida es rastreado, valorizado y controlado frente a políticas estrictas de presupuestos corporativos.
-* **Resiliencia Estructural y Tolerancia a Fallas:** Manejo avanzado y granular de excepciones de bajo nivel para mitigar de forma proactiva las alucinaciones sintácticas de la IA, sentando las bases de la ingeniería para bucles autónomos de autocorrección (*Self-Healing*).
-* **Portabilidad de Infraestructura:** Cero dependencias locales "mágicas". El entorno completo de datos, esquemas relacionales y dependencias se orquesta y automatiza herméticamente mediante contenedores Docker.
-
----
-
-### ¿Qué permite hacer el sistema?
-* **Análisis de Negocio bajo Demanda:** Permite a directores y analistas extraer KPIs comerciales (márgenes de ganancias, productos críticos, estacionalidad, métricas geográficas) sin depender de equipos de BI tradicionales.
-* **Interoperabilidad de Modelos de Vanguardia:** Permite alternar dinámicamente el motor cognitivo de IA entre el SDK unificado de última generación de **Google Gemini** (capturando metadatos avanzados de razonamiento secuencial de la serie *Flash Thinking*) y **OpenAI** mediante configuraciones externas.
-* **Control Presupuestario en Tiempo Real:** Bloquea ejecuciones y mitiga riesgos financieros si el consumo cumulativo de tokens del agente alcanza el límite financiero asignado (`BUDGET`).
-* **Generación de Reportes Ejecutivos:** Compila de manera automática tabulaciones analíticas complejas e históricos de consumo mediante Pandas y genera gráficos estadísticos de área (`.png`) listos para auditorías directas de gerencia.
+* **Production-Ready Design:** Clear separation of concerns. Language model clients, database logic, cost telemetry, and visualization interfaces interact in a decoupled way using abstractions and dependency injection.
+* **Observability & Governance (FinOps):** Built-in cost tracking and full visibility into the agent's execution loop. No model call happens blindly: every input, output, and reasoning token is tracked, priced, and controlled under strict budget limits.
+* **Resilience & Fault Tolerance:** Fine-grained error handling to catch AI syntax errors proactively, laying the engineering foundation for autonomous self-healing loops.
+* **Infrastructure Portability:** No local environment dependencies. The entire database, schema, and app environment are fully containerized and automated using Docker.
 
 ---
 
-## 📊 Arquitectura del Data Mart Analítico (Northwind OLAP)
-
-A diferencia del esquema tradicional de Northwind diseñado para operaciones transaccionales diarias (OLTP), este agente opera sobre una infraestructura optimizada de **Data Mart / Almacén de Datos (OLAP)**. El esquema relacional extraído de `system_prompt.txt` adopta un diseño multidimensional enfocado en Business Intelligence y consultas agregadas de alta performance:
-
-### 1. Jerarquía de Dimensiones Geográficas (Snowflake Alignment)
-El Data Mart normaliza las ubicaciones comerciales para habilitar análisis granulares de rendimiento por regiones geográficas:
-* **`Continent`:** Entidad raíz que clasifica los continentes comerciales.
-* **`Country`:** Almacena datos macroeconómicos esenciales como población (`Population`), capitales y códigos estandarizados, vinculados directamente a su respectivo continente.
-* **`State`:** Modela subdivisiones políticas complejas, identificando tipos de estado, capitales internas y agrupaciones de regiones regionales de mercado (`RegionName`).
-* **`City`:** Capa de granularidad final donde convergen los clientes y redes de distribución física.
-
-### 2. Dimensión de Suministro y Catálogo Comercial
-* **`Supplier`:** Estructura exhaustiva de socios comerciales mapeados directamente a la jerarquía geográfica (`CityKey`), registrando datos de contacto empresariales y canales de comunicación.
-* **`Product`:** Entidad centralizada de inventario. Incorpora flags de control técnico estricto como `Discontinued`, implementado de manera nativa como tipo de dato de bajo nivel `bit` ('0' = Activo, '1' = Descontinuado), obligando al agente a procesar lógica binaria exacta en sus filtros analíticos.
-
-### 3. Restricciones Técnicas y Reglas del Dominio SQL
-El prompt del sistema (`system_prompt.txt`) dota al agente con el mapa mental exacto de restricciones y tipos primitivos de PostgreSQL:
-* **Manejo Preciso de Datos Monetarios:** Las columnas financieras están estructuradas bajo el tipo nativo `money` de PostgreSQL. El agente está instruido estrictamente para realizar el casteo explícito de estos campos a `DECIMAL/FLOAT` antes de cualquier cálculo agregativo, eliminando errores de precisión matemática en tiempo de ejecución.
-* **Filtros Flexibles y Resilientes:** Uso obligatorio de cláusulas `ILIKE` para mitigar discrepancias e inconsistencias de mayúsculas, minúsculas o acentuaciones dentro de las búsquedas de texto ejecutadas por el usuario.
+### Key System Capabilities
+* **On-Demand Business Analytics:** Allows managers and analysts to query commercial KPIs (profit margins, top products, seasonality, regional metrics) without needing traditional BI support.
+* **Multi-Model Flexibility:** Switch dynamically between **Google Gemini** (using its unified SDK and reasoning tokens tracking) and **OpenAI** via environment variables.
+* **Real-Time Budget Control:** Blocks model execution and prevents unwanted API costs if cumulative token usage reaches the assigned budget limit (`BUDGET`).
+* **Executive Reporting:** Automatically compiles analytical tables and cost histories using Pandas, and generates visual area charts (`.png`) for management reporting.
 
 ---
 
-## 🚀 Características Técnicas Principales
+## 📊 Analytical Data Mart Architecture (Northwind OLAP)
 
-### 1. Multi-Provider Factory (Arquitectura Desacoplada)
-Implementación del patrón de diseño Fábrica mediante la abstracción `LLMCliente`. La inicialización de componentes es dinámica e inyectada en tiempo de ejecución:
-* **`GeminiClient`:** Desarrollado con el ecosistema de vanguardia `google-genai`. Extrae nativamente del conteo de metadatos de uso la telemetría cognitiva (`thoughts_token_count`), permitiendo medir el esfuerzo computacional invertido por los modelos de razonamiento avanzado.
-* **`OpenAIClient`:** Desarrollado sobre el driver oficial de `openai`, parametrizado utilizando el rol moderno `developer` para maximizar la obediencia de las directivas analíticas y de sintaxis SQL.
+Unlike the traditional Northwind schema designed for daily transactions (OLTP), this agent operates over an optimized **Data Mart / Data Warehouse (OLAP)**. The relational schema defined in `system_prompt.txt` uses a multidimensional design built for Business Intelligence and high-performance aggregate queries:
 
-### 2. Infraestructura Autogestionada en Docker
-El ciclo de despliegue está 100% automatizado mediante **Docker Compose**:
-* **`postgres_db`:** Contenedor aislado de PostgreSQL 17 configurado con volúmenes locales nombrados para asegurar la persistencia absoluta de los datos analíticos.
-* **`db_initializer` (Contenedor Efímero):** Módulo basado en Python que monitoriza el estado de salud de la base de datos principal (`service_healthy`) y, al comprobar la disponibilidad del puerto, inicializa y ejecuta masivamente el esquema y los datos relacionales desde `northwind.sql` para luego cerrarse limpiamente sin desperdiciar recursos del host.
+### 1. Geographic Hierarchy (Snowflake Schema)
+The Data Mart normalizes location data to enable detailed regional analysis:
+* **`Continent`:** Root entity classifying business continents.
+* **`Country`:** Stores key macroeconomic data like population, capitals, and standardized codes linked to their continent.
+* **`State`:** Models state/province subdivisions, including capital cities and regional market groups (`RegionName`).
+* **`City`:** Final granularity level where customer and distribution data connect.
 
-### 3. Pipeline de Datos Resiliente
-El script `src/utils/database.py` envuelve la capa de ejecución con una red de seguridad fina y robusta basada en excepciones explícitas del driver `psycopg2`:
-* **`OperationalError` / `DataError`:** Capturan fallas de red, credenciales o desajustes de tipos de datos.
-* **`ProgrammingError`:** Captura de forma quirúrgica errores sintácticos u homónimos incorrectos de tablas/columnas causados por alucinaciones marginales de la IA. Actúa como el gancho de telemetría perfecto para implementar pipelines de autoreparación (*Self-Healing Inference*).
-* **Purificador Sintáctico (`clean_sql_query`):** Pipeline lineal que remueve decoradores tipográficos de Markdown (` ```sql `), normaliza espaciados dobles y aplana saltos de línea para inyectar sentencias SQL puras de alta velocidad.
+### 2. Supply & Commercial Catalog Dimension
+* **`Supplier`:** Comprehensive supplier records mapped directly to the geographic hierarchy (`CityKey`).
+* **`Product`:** Central inventory entity. Includes flags like `Discontinued`, stored as a `bit` data type ('0' = Active, '1' = Discontinued), forcing the agent to handle exact binary filtering.
 
-### 4. Telemetría Avanzada y Módulo Financiero (Tokenomics)
-La lógica financiera es completamente transparente para el código core del negocio gracias al uso de programación orientada a aspectos mediante el decorador de diseño `@auditar_tokenomics`:
-* **Auditoría Contable:** Registra timestamps de microsegundos, latencias exactas de respuesta, distribución de tokens y costos monetarios detallados en `artifacts/tokenomics_history.json`.
-* **Visualización de Datos Corporativos:** Genera diagramas financieros ejecutivos (`artifacts/costo_acumulado.png`) automatizando el uso de Pandas y subplots de Matplotlib para proyectar el consumo vs presupuesto.
-* **Reporte Ejecutivo:** Exportación dinámica del historial de llamadas mediante matrices de datos volcadas a tablas Markdown puras con `.to_markdown()`.
-
-### 5. Interfaz Visual e Industrial (Rich Logging)
-Salida de logs unificada en `src/utils/logger.py`:
-* Descarte total de impresiones rudimentarias. Emplea `RichHandler` para proveer resaltado de sintaxis SQL en vivo sobre la terminal y renderizado visual avanzado de errores (`rich_tracebacks`).
-* Persistencia dual: Filtro de nivel operativo `INFO` en consola para el usuario y volcado profundo de depuración `DEBUG` estructurado con timestamps en `logs/app.log`.
+### 3. Technical Constraints & SQL Rules
+The system prompt (`system_prompt.txt`) equips the agent with strict PostgreSQL rules:
+* **Precise Monetary Handling:** Financial columns use PostgreSQL's native `money` type. The agent is strictly instructed to explicitly cast these fields to `DECIMAL/FLOAT` before applying aggregate calculations to prevent runtime type errors.
+* **Resilient Case-Insensitive Filtering:** Mandatory use of `ILIKE` to handle case variations and accents in user text queries.
 
 ---
 
-## 📂 Estructura de Archivos del Repositorio
+## 🚀 Main Technical Features
+
+### 1. Multi-Provider Factory (Decoupled Architecture)
+Implementation of the Factory design pattern via the `LLMCliente` abstraction. Model selection is dynamic and injected at runtime:
+* **`GeminiClient`:** Built with the `google-genai` SDK. Automatically captures reasoning token telemetry (`thoughts_token_count`) to track computational effort from reasoning models.
+* **`OpenAIClient`:** Built using the official `openai` SDK, configured with the `developer` role to enforce SQL generation directives.
+
+### 2. Self-Managed Docker Infrastructure
+The deployment workflow is fully automated with **Docker Compose**:
+* **`postgres_db`:** Isolated PostgreSQL 17 container with persistent named volumes.
+* **`db_initializer` (Ephemeral Container):** Python module that waits for PostgreSQL to be healthy (`service_healthy`), populates the database schema and data from `northwind.sql`, and shuts down cleanly to save system resources.
+
+### 3. Resilient Data Pipeline
+The `src/utils/database.py` script wraps execution with exception handling using `psycopg2`:
+* **`OperationalError` / `DataError`:** Catch network, credential, or data type mismatch issues.
+* **`ProgrammingError`:** Specifically catches SQL syntax or column/table typos caused by LLM hallucinations, serving as telemetry hooks for self-healing loops.
+* **SQL Sanitizer (`clean_sql_query`):** Strips Markdown formatting (` ```sql `), normalizes spaces, and flattens line breaks to send clean, executable SQL to the database.
+
+### 4. Advanced Telemetry & FinOps Module (Tokenomics)
+Financial and token metrics are handled transparently using an aspect-oriented design pattern with the `@auditar_tokenomics` decorator:
+* **Cost Auditing:** Records microsecond timestamps, latency, token breakdowns, and estimated USD costs in `artifacts/tokenomics_history.json`.
+* **Data Visualization:** Automatically plots cumulative spending vs. budget (`artifacts/costo_acumulado.png`) using Pandas and Matplotlib.
+* **Executive Summary:** Generates Markdown tables (`.to_markdown()`) summarizing execution history.
+
+### 5. Production-Grade Rich Logging
+Unified logging system in `src/utils/logger.py`:
+* Replaces basic prints with `RichHandler` to provide live SQL syntax highlighting in terminal and rich error tracebacks.
+* Dual logging: clean `INFO` logs on the console and detailed `DEBUG` traces saved in `logs/app.log`.
+
+---
+
+## 📂 Repository File Structure
 
 ```text
-├── artifacts/                           # Reportes, telemetría y entregables visuales
-│   ├── costo_acumulado.png             # Gráfica analítica de evolución del gasto vs presupuesto
-│   ├── REPORTE_TOKENOMICS.md           # Reporte corporativo ejecutivo en formato Markdown
-│   └── tokenomics_history.json         # Historial financiero cumulativo de tokens y latencias
+├── artifacts/                           # Reports, telemetry, and visual output
+│   ├── costo_acumulado.png             # Spending trend vs. budget chart
+│   ├── REPORTE_TOKENOMICS.md           # Executive report in Markdown
+│   └── tokenomics_history.json         # History of token usage, latency, and costs
 ├── logs/
-│   └── app.log                          # Logs profundos del sistema (Nivel DEBUG plano)
-├── src/                                 # Código fuente centralizado de la aplicación
+│   └── app.log                          # Detailed system logs (DEBUG level)
+├── src/                                 # Application source code
 │   ├── __init__.py
-│   ├── core/                            # Núcleo analítico y orquestadores de IA
+│   ├── core/                            # AI logic and agent orchestrator
 │   │   ├── __init__.py
-│   │   └── llm/                         # Capa de abstracción y factoría de clientes LLM
-│   │       ├── __init__.py              # Enrutador dinámico: get_llm_client()
-│   │       ├── base.py                  # Definición de estructuras de datos e interfaces
-│   │       ├── gemini.py                # Implementación bajo SDK google-genai unificado
-│   │       └── openai.py                # Implementación con SDK oficial de OpenAI
-│   └── utils/                           # Módulos transversales y utilidades del sistema
+│   │   └── llm/                         # LLM client abstractions and factory
+│   │       ├── __init__.py              # Dynamic router: get_llm_client()
+│   │       ├── base.py                  # Interfaces and base data structures
+│   │       ├── gemini.py                # Google Gemini client implementation
+│   │       └── openai.py                # OpenAI client implementation
+│   └── utils/                           # Shared utility modules
 │       ├── __init__.py
-│       ├── database.py                  # Manejo resiliente de queries y captura de excepciones
-│       ├── decorators.py                # Decoradores contables y lógica de reintentos
-│       ├── errors.py                    # Jerarquía de excepciones de dominio personalizado
-│       ├── logger.py                    # Configuración central de Rich Logging unificado
-│       ├── tokenomics.py                # Lógica contable, graficación y reporteo financiero
-│       └── validators.py                # Validaciones estáticas de parámetros y prompts
-├── .example.env                         # Plantilla e instrucciones de variables de entorno
-├── database_init.py                     # Script independiente de control y poblado para Docker
-├── docker-compose.yml                   # Configuración y orquestación del cluster de servicios
-├── main.py                              # Orquestador e hilo conductor analítico del agente
-└── system_prompt.txt                    # System prompt estricto con mapa completo del Data Mart
-```
+│       ├── database.py                  # Database connection and query execution
+│       ├── decorators.py                # Tokenomics and retry decorators
+│       ├── errors.py                    # Custom exception hierarchy
+│       ├── logger.py                    # Rich logging configuration
+│       ├── tokenomics.py                # Telemetry, reporting, and cost calculations
+│       └── validators.py                # Input validation functions
+├── .example.env                         # Environment variables template
+├── database_init.py                     # Standalone database setup script for Docker
+├── docker-compose.yml                   # Docker orchestration config
+├── main.py                              # Main application orchestrator
+└── system_prompt.txt                    # System prompt with Data Mart context
 
 ---
 
-## ⚙️ Configuración del Entorno y Variables (.env)
+## ⚙️ Environment Setup (.env)
 
-Configura tu archivo `.env` en la raíz tomando como referencia el archivo `.example.env`:
+Configure your .env file in the project root using .example.env as a reference:
 
 ```ini
-# Selección del Core Cognitivo
-LLM_PROVIDER=GEMINI                      # Opciones válidas: GEMINI | OPENAI
-GEMINI_API_KEY=tu_api_key_aqui
+# Cognitive Engine Selection
+LLM_PROVIDER=GEMINI                      # Valid options: GEMINI | OPENAI
+GEMINI_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-2.5-flash-thinking-exp 
-OPENAI_API_KEY=tu_api_key_aqui
+OPENAI_API_KEY=your_api_key_here
 OPENAI_MODEL=gpt-4o
 
-# Capa de Datos e Infraestructura Relacional
+# Database & Relational Infrastructure
 DB_USER=postgres
-DB_PASSWORD=mi_password_secreto
+DB_PASSWORD=my_secret_password
 DB_NAME=northwind_dw
 DB_PORT=5432
-DB_HOST=localhost                        # Cambiar a 'postgres_db' si se ejecuta dentro del clúster Docker
+DB_HOST=localhost                        # Change to 'postgres_db' when running inside Docker
 
-# Gestión Financiera y FinOps (Tokenomics)
-BUDGET=5.0                               # Presupuesto límite global expresado en USD
+# FinOps & Cost Management (Tokenomics)
+BUDGET=5.0                               # Global budget cap in USD
 GEMINI_INPUT_TOKENS_COST_PER_MILLION=0.075
 GEMINI_OUTPUT_TOKENS_COST_PER_MILLION=0.30
 OPENAI_INPUT_TOKENS_COST_PER_MILLION=2.50
@@ -144,51 +143,51 @@ OPENAI_OUTPUT_TOKENS_COST_PER_MILLION=10.00
 
 ---
 
-## 🛠️ Instalación y Despliegue Secuencial
+## 🛠️ Environment Setup (.env)
 
-### Paso 1: Clonar y configurar variables de entorno
-Ubica los archivos del agente en tu entorno local y duplica la plantilla de variables completando tus tokens de API:
+### Step 1: Clone and Configure Environment Variables
+Copy the example environment file and add your API keys:
 ```bash
 cp .example.env .env
 ```
 
-### Paso 2: Inicializar la Infraestructura de Datos (Docker)
-Levanta los servicios contenerizados para automatizar la creación y poblado masivo del Data Mart analítico de Northwind:
+### Step 2: Start Data Infrastructure (Docker)
+Launch the containerized services to build and populate the Northwind Data Mart:
 ```bash
 docker compose up -d --build
 ```
-*Este comando inicializará de manera asíncrona la base de datos de PostgreSQL y lanzará el contenedor de poblado automático. Al finalizar la inserción, el contenedor inicializador se detendrá de forma autónoma, liberando memoria.*
+*This command starts PostgreSQL asynchronously and runs the initializer container. Once the data is inserted, the initializer container stops automatically to save resources.*
 
-### Paso 3: Aislar el Entorno Virtual de Desarrollo
-Crea y activa un entorno virtual limpio para gestionar las dependencias de Python:
+### Step 3: Set Up Python Virtual Environment
+Create and activate a virtual environment:
 ```bash
-# Inicialización
+# Create environment
 python -m venv env
 
-# Activación en sistemas Unix (macOS/Linux)
+# Activate on Unix (macOS/Linux)
 source env/bin/activate
 
-# Activación en Windows
+# Activate on Windows
 env\Scripts\activate
 ```
 
-Instala el set de dependencias empresariales del sistema:
+Install required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### Paso 4: Ejecutar el Agente Analítico
-Inicia el flujo interactivo de procesamiento de preguntas de negocio:
+### Step 4: Run the Analyst Agent
+Run the main agent orchestrator:
 ```bash
 python main.py
 ```
 
 ---
 
-## 🔄 Flujo Operativo Interno del Agente
-1. **Inyección de Contexto:** El orquestador lee `system_prompt.txt` e inyecta al LLM las reglas de casteo monetario, tratamiento de banderas binarias y el diseño multidimensional del Data Mart.
-2. **Instanciación Dinámica:** La factoría evalúa el proveedor configurado e inyecta la clase del cliente correspondiente.
-3. **Inferencia Guardrailizada:** Por cada prompt de negocio enviado, el decorador calcula el costo real exacto, actualiza el archivo histórico JSON y verifica que no se viole el presupuesto global.
-4. **Purificación e Inyección SQL:** La respuesta es limpiada de caracteres Markdown, enviada al driver de PostgreSQL con captura estricta de excepciones estructurales y procesada en DataFrames de Pandas.
-5. **Renderizado e Interacción:** El pipeline de Rich pinta en consola la consulta analítica formateada y la tabla de resultados en color de alta fidelidad, pausando interactivamente para el análisis secuencial.
-6. **Compilación de Reporte de Cierre:** Al finalizar la lista de prompts, el agente consolida las telemetrías y exporta el gráfico visual Matplotlib y el reporte ejecutivo Markdown automatizado.
+## 🔄 Internal Agent Workflow
+1. **Context Injection**: The orchestrator reads system_prompt.txt and feeds the LLM with database rules (money casting, binary flags, and schema structure).
+2. **Dynamic Client Instantiation**: The factory reads the active provider and instantiates the matching client class.
+3. **Guardrailed Inference**: On every prompt, the @auditar_tokenomics decorator tracks execution costs, updates telemetry, and ensures the total budget isn't exceeded.
+4. **SQL Sanitization & Execution**: The generated SQL is cleaned of Markdown, safely executed on PostgreSQL, and loaded into Pandas DataFrames.
+5. **Rich Terminal Display**: Rich formats and displays both the SQL query and the resulting data table directly in the terminal.
+6. **Final Report Generation**: Once all prompts finish, the system generates the Matplotlib spending chart and the Markdown tokenomics report.
