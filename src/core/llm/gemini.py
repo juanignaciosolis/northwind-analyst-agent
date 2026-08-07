@@ -17,6 +17,7 @@ from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme
 from src.utils.errors import EmptyRespondError
+from src.settings import settings
 
 
 class GeminiClient(LLMCliente):
@@ -32,7 +33,7 @@ class GeminiClient(LLMCliente):
                          temperature,
                          max_output_tokens)
 
-        self._client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        self._client = genai.Client(api_key=settings.api_key_value())
 
         logger.info("¡Éxito! Cliente instanciado")
 
@@ -50,7 +51,7 @@ class GeminiClient(LLMCliente):
 
             start = perf_counter()
             intereaction = self._client.models.generate_content(
-                model=os.getenv("GEMINI_MODEL"),
+                model=settings.gemini_default_model,
                 contents= prompt,
                 config= types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -67,8 +68,8 @@ class GeminiClient(LLMCliente):
 
             return LLMResponse(
                 text = intereaction.parsed,
-                provider= os.getenv("LLM_PROVIDER"),
-                model = os.getenv("GEMINI_MODEL"),
+                provider= "GEMINI",
+                model = settings.gemini_default_model,
                 latency= float(latency),
                 input_tokens= int(intereaction.usage_metadata.prompt_token_count or 0),
                 thinking_tokens= int(intereaction.usage_metadata.thoughts_token_count or 0),
@@ -84,8 +85,8 @@ class GeminiClient(LLMCliente):
   
                 return LLMResponse(
                     text=None,
-                    provider=os.getenv("LLM_PROVIDER"),
-                    model=os.getenv("GEMINI_MODEL"),
+                    provider="GEMINI",
+                    model=settings.gemini_default_model,
                     latency= float(latency),
                     input_tokens= int(intereaction.usage_metadata.prompt_token_count or 0),
                     thinking_tokens= int(intereaction.usage_metadata.thoughts_token_count or 0),

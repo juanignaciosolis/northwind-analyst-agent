@@ -10,8 +10,9 @@ from psycopg2 import OperationalError, ProgrammingError, DataError, Error
 from psycopg2.extensions import connection as PGConnection
 from dotenv import load_dotenv
 import pandas as pd
+from src.settings import settings
 
-load_dotenv()
+#load_dotenv()
 
 class DatabaseManager:
     def __init__(self):
@@ -21,11 +22,11 @@ class DatabaseManager:
         """Se ejecuta al entrar al bloque 'with'"""
         try:
             self.conn = psycopg2.connect(
-                host=os.getenv("DB_HOST"),
-                database=os.getenv("DB_NAME"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD"),
-                port=os.getenv("DB_PORT")
+                host=settings.db_host,
+                database=settings.db_name,
+                user=settings.db_user,
+                password=settings.get_db_password(),
+                port=settings.db_port
             )
             logger.info(f"Conexión a {os.getenv('DB_NAME')} establecida.")
         except Exception as e:

@@ -15,8 +15,8 @@ from src.prompts.user_prompt import prompt_constructor
 from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import AnswerOpenAIScheme
-from src.utils.errors import EmptyRespondError
-from pydantic import ValidationError
+from src.settings import settings
+
 
 class OpenAIClient(LLMCliente):
     def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
@@ -32,7 +32,7 @@ class OpenAIClient(LLMCliente):
                          max_output_tokens)
 
 
-        self._client = OpenAI(api_key = os.getenv("OPENAI_API_KEY"))
+        self._client = OpenAI(api_key = settings.api_key_value)
 
         logger.info("¡Éxito! Cliente instanciado")
 
@@ -64,7 +64,7 @@ class OpenAIClient(LLMCliente):
         try:
             start = perf_counter()
             interaction = self._client.beta.chat.completions.parse(
-                model = os.getenv("OPENAI_MODEL"),
+                model = settings.opneai_default_model,
                 messages= messages,
                 response_format= AnswerOpenAIScheme,
                 max_tokens = self.max_output_tokens
@@ -91,8 +91,8 @@ class OpenAIClient(LLMCliente):
 
             return LLMResponse(
             text=parsed_response, 
-            provider=os.getenv("LLM_PROVIDER"),
-            model=os.getenv("OPENAI_MODEL"),  
+            provider="OPENAI",
+            model=settings.opneai_default_model,  
             latency=float(latency),
             input_tokens=int(usage.prompt_tokens if usage else 0), 
             thinking_tokens=int(reasoning_tokens), 
@@ -113,8 +113,8 @@ class OpenAIClient(LLMCliente):
 
             return LLMResponse(
                     text=text,
-                    provider=os.getenv("LLM_PROVIDER"),
-                    model=os.getenv("OPENAI_MODEL"),
+                    provider="OPENAI",
+                    model=settings.opneai_default_model,
                     latency=float(latency),
                     input_tokens=int(usage.prompt_tokens or 0),
                     thinking_tokens=0, 

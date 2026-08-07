@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
 
-load_dotenv()
+#load_dotenv()
 
 from src.core.llm import get_llm_client
 from src.utils.database import DatabaseManager, clean_sql_query

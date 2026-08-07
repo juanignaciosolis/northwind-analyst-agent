@@ -10,17 +10,18 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+from src.settings import settings
 
 # Cargar configuración desde el .env
-load_dotenv()
+#load_dotenv()
 
 logger.info("Inicialización de la base de datos desde archivo SQL...")
 
-db_host = os.getenv("DB_HOST", "localhost")
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASSWORD")
-db_name = os.getenv("DB_NAME")
-db_port = os.getenv("DB_PORT", "5432")
+db_host = settings.db_host
+db_user = settings.db_user
+db_password = settings.get_db_password()
+db_name = settings.db_user
+db_port = settings.db_port
 
 SQL_FILE_PATH = Path(__file__).resolve().parent / "db" / "northwind.sql"
 

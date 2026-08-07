@@ -12,11 +12,11 @@ from typing import Callable, Any
 import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.pyplot as plt
-from dotenv import load_dotenv
 import os
-from md2pdf import md2pdf
+from src.settings import settings
 
-PRESUPUESTO_MAXIMO = float(os.getenv("BUDGET",0))
+
+PRESUPUESTO_MAXIMO = settings.budget
 
 REGISTRO_JSON = Path("artifacts/tokenomics_history.json")
 GRAFICO_PNG = Path("artifacts/costo_acumulado.png")
@@ -107,8 +107,8 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
         latencia_ms = getattr(respuesta, "latencia", 0.0)
         
         tarifas = {
-            "input": float(os.getenv("GEMINI_INPUT_TOKENS_COST_PER_MILLION",0) if os.getenv("LLM_PROVIDER") == "GEMINI" else os.getenv("OPENAI_INPUT_TOKENS_COST_PER_MILLION",0)),
-            "output": float(os.getenv("GEMINI_INPUT_TOKENS_COST_PER_MILLION",0) if os.getenv("LLM_PROVIDER") == "GEMINI" else os.getenv("OPENAI_INPUT_TOKENS_COST_PER_MILLION",0))
+            "input": settings.gemini_input_usd_per_million if settings.default_provider == "GEMINI" else settings.openai_input_usd_per_million,
+            "output": settings.gemini_output_usd_per_million if settings.default_provider == "GEMINI" else settings.opneai_output_usd_per_million
         }
         
         costo_input = input_tokens * (tarifas["input"] / 1000000)
