@@ -13,7 +13,8 @@ from rich.rule import Rule
 
 #load_dotenv()
 
-from src.core.llm import get_llm_client
+from src.core.llm import build_provider
+from src.settings import settings
 from src.utils.database import DatabaseManager, clean_sql_query
 from src.utils.tokenomics import generar_reporte_markdown
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
@@ -35,7 +36,7 @@ if __name__ == "__main__":
 
         console.print(Panel(system_prompt_content, title="[bold green]System Promt[/]", border_style="green"))
 
-        client = get_llm_client(system_prompt = system_prompt_content)
+        client = build_provider(settings)
         
 
         prompts = ["Dame el monto de ventas totales por dia junto con el promedio movil con una ventana de 3 dias centralizada",
@@ -54,7 +55,7 @@ if __name__ == "__main__":
 
                         console.print(Panel(prompt, title="[bold violet]User Prompt[/]", border_style="violet"))
                 
-                        respuesta = client.send_message(prompt=prompt)
+                        respuesta = client.generate(prompt=prompt, system = system_prompt_content)
 
                         obj_pydantic = respuesta.text
 
@@ -85,7 +86,7 @@ if __name__ == "__main__":
 
                                                 logger.info(f"Prompt corregido:\n[green]{prompt}[/]")
 
-                                                respuesta = client.send_message(prompt=prompt)
+                                                respuesta = client.generate(prompt=prompt, system = system_prompt_content)
 
                                                 obj_pydantic = respuesta.text
 

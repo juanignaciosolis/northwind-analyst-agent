@@ -6,11 +6,12 @@ logger: Logger = logging.getLogger(__name__)
 import functools
 import time
 import os
+from src.settings import settings
 from typing import Callable, Any, Annotated, Union
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter, Field
 import json
-from src.core.llm.base import LLMResponse
+from src.core.llm.contract import GenerationResult
 
 RespuestaUnion = Annotated[
     Union[SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme],
@@ -88,13 +89,12 @@ def retry_backoff(intentos: int, delay: int) -> Callable:
             
             logger.error(f"[bold red]Se acabaron todos lo intentos. En total {max_intentos}[/]")
 
-            return LLMResponse(
+            return GenerationResult(
             text=None, 
-            provider=os.getenv("LLM_PROVIDER", "Unknown"), 
-            model=os.getenv("GEMINI_MODEL", "Unknown"),
+            provider=settings.default_provider, 
+            model=settings.gemini_default_model or settings.openai_default_model,
             latency= getattr(resultado,"latency",0) if resultado is not None else 0, 
             input_tokens=getattr(resultado,"input_tokens",0) if resultado is not None else 0, 
-            thinking_tokens=getattr(resultado,"thinking_tokens",0) if resultado is not None else 0, 
             output_tokens=getattr(resultado,"output_tokens",0) if resultado is not None else 0, 
             total_tokens=getattr(resultado,"total_tokens",0) if resultado is not None else 0
         )

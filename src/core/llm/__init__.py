@@ -1,30 +1,16 @@
-from .base import LLMCliente
 from .gemini import GeminiClient
 from .openai import OpenAIClient
-
-import os
-
-from dotenv import load_dotenv
-from pathlib import Path
+from .fake import FakeProvider
 from src.settings import settings
 
 
-load_dotenv(Path(__file__).resolve().parents[3])
+def build_provider(settings):
+    if getattr(settings,"default_provider", None) == "GEMINI":
+        return GeminiClient(settings.api_key_value(), settings.gemini_default_model)
+    if getattr(settings,"default_provider", None) == "OPENAI":
+        return OpenAIClient(settings.api_key_value(), settings.openai_default_model)
+    return FakeProvider(model=f"fake:{settings.default_model}")
 
 
-def get_llm_client(*args,**kwargs) -> LLMCliente:
-    try:
-        providor = settings.default_provider
-    except:
-        raise "Falta definir al PROVIDOR como variable de entorno"
-
-    if providor == "GEMINI":
-        return GeminiClient(*args,**kwargs)
-    elif providor == "OPENAI":
-        return OpenAIClient(*args,**kwargs)
-    else:
-        raise "LLM PROVIDER no implementado"
-
-
-__all__ = ["get_llm_client"]
+__all__ = ["build_provider"]
 

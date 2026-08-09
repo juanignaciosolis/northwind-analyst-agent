@@ -3,121 +3,142 @@ from logging import Logger
 
 logger: Logger = logging.getLogger(__name__)
 
-from openai import OpenAI
-import os
-from time import perf_counter
-from typing import Optional
+from openai import OpenAI, AsyncOpenAI
+import time
+import asyncio
+from typing import AsyncIterator
 
 
-from .base import LLMCliente, LLMResponse
-from src.utils.validators import temperature_validator
+from .contract import GenerationResult
+from src.utils.validators import temperature_validator,message_validator
 from src.prompts.user_prompt import prompt_constructor
-from src.utils.decorators import retry_backoff
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import AnswerOpenAIScheme
-from src.settings import settings
+from src.utils.errors import (ProviderConfigurationError,
+                              RateLimitError, 
+                              ProviderTimeoutError, 
+                              TransientProviderError,
+                              InvalidProviderResponseError,
+                              InvalidRequestError)
 
-
-class OpenAIClient(LLMCliente):
-    def __init__(self, system_prompt : Optional[str] = None, temperature: float = 0.2, max_output_tokens: int = None):
+class OpenAIClient:
+    def __init__(self, api_key: str | None, model: str):
 
         logger.info("Se inicializa el cliente de OpenAI...")
 
-        logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system_prompt else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
+        if not api_key:
+            raise ProviderConfigurationError("Falta OPENAI_API_KEY")
 
-        logger.debug(f"[bold yellow]System prompt cargado:[/]\n{system_prompt}")
-     
-        super().__init__(system_prompt, 
-                         temperature_validator(temperature),
-                         max_output_tokens)
-
-
-        self._client = OpenAI(api_key = settings.api_key_value)
+        self.model = model
+        self.client = OpenAI(api_key = api_key)
+        self.aclient = AsyncOpenAI(api_key=api_key)
 
         logger.info("¡Éxito! Cliente instanciado")
 
-    @auditar_tokenomics
-    @retry_backoff(3,2)
-    def send_message(self, prompt: str, id: Optional[str] = None) -> LLMResponse:
+    @staticmethod
+    def _map_exception(exc: Exception) -> Exception:
+        text = str(exc).lower()
+        if "429" in text or "rate limit" in text or "resource exhausted" in text:
+            return RateLimitError(str(exc))
+        if "timeout" in text or "timed out" in text:
+            return ProviderTimeoutError(str(exc))
+        if "401" in text or "403" in text or "api key" in text:
+            return ProviderConfigurationError(str(exc))
+        return TransientProviderError(str(exc))
 
-        prompt = prompt_constructor(prompt)
+    @staticmethod
+    def _usage(response) -> tuple[int, int]:
+        usage = getattr(response, "usage", None)
+        return (
+            int(getattr(usage, "prompt_tokens", 0) or 0),
+            int(getattr(usage, "completetion_tokens", 0) or 0),
+        )
+
+    def _normalize(self, response, started: float) -> GenerationResult:
+        text = response.output_parsed or ""
+        if not text:
+            raise InvalidProviderResponseError("OpenAI devolvió texto vacío")
+        input_tokens, output_tokens = self._usage(response)
+        return GenerationResult(
+            text=text,
+            model=self.model,
+            provider="openai",
+            latency=round((time.perf_counter() - started) * 1000, 2),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens= input_tokens + output_tokens
+        )
+
+    @auditar_tokenomics
+    def generate(self, prompt: str, *, system: str | None = None, temperature: float = 0.2, max_output_tokens: int | None = None) -> GenerationResult:
+
+        logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
+
+        logger.debug(f"[bold yellow]System prompt cargado:[/]\n{system}")
+
+        mesagge = message_validator(prompt)
+        prompt = prompt_constructor(mesagge)
 
         logger.debug("Prompt: " + f"[orange3]{prompt}[/]")
 
-        messages = []
-
-        if self.system_prompt:
-            messages.append(
-            {
-                "role": "developer",
-                "content": self.system_prompt
-            })
-
-        messages.append(
-            {
-                "role": "user",
-                "content": prompt
-            })
-
-        logger.info("Se evia el mensaje por API")
-
         try:
-            start = perf_counter()
-            interaction = self._client.beta.chat.completions.parse(
-                model = settings.opneai_default_model,
-                messages= messages,
-                response_format= AnswerOpenAIScheme,
-                max_tokens = self.max_output_tokens
-            )
-
-            latency = round(perf_counter() - start,4)
+            started = time.perf_counter()
+            response = self.client.responses.parse(
+                model=self.model,
+                instructions=system,
+                store=False,
+                input=prompt,
+                temperature= temperature_validator(temperature),
+                max_output_tokens=max_output_tokens,
+                text_format=AnswerOpenAIScheme)
 
             logger.info("Llamada exitosa!")
 
-            usage = interaction.usage
+            answer = self._normalize(response, started)
 
-            message = interaction.choices[0].message
+            return answer
+        
+        except Exception as exc:
+            if isinstance(exc, InvalidProviderResponseError):
+                raise
+            raise self._map_exception(exc) from exc
 
-            try:
-                parsed_response = interaction.choices[0].message.parsed    
-            except:
-                parsed_response = interaction.choices[0].message.content
-                
-            reasoning_tokens = 0
-            if usage and hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
-                reasoning_tokens = getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
 
-            logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{parsed_response.model_dump_json(indent=4)}[/]")
+    async def agenerate(self, prompt: str, *, system: str | None = None, temperature: float = 0.2) -> GenerationResult:
+        if not prompt.strip():
+            raise InvalidRequestError("El prompt no puede estar vacío")
+        started = time.perf_counter()
+        try:
+            response = await self.aclient.responses.parse(
+                model=self.model,
+                instructions=system,
+                store=False,
+                input=prompt,
+                temperature= temperature_validator(temperature),
+                text_format=AnswerOpenAIScheme)
+            
+            return self._normalize(response, started)
+        except Exception as exc:
+            if isinstance(exc, InvalidProviderResponseError):
+                raise
+            raise self._map_exception(exc) from exc
 
-            return LLMResponse(
-            text=parsed_response, 
-            provider="OPENAI",
-            model=settings.opneai_default_model,  
-            latency=float(latency),
-            input_tokens=int(usage.prompt_tokens if usage else 0), 
-            thinking_tokens=int(reasoning_tokens), 
-            output_tokens=int(usage.completion_tokens if usage else 0),
-            total_tokens=int(usage.total_tokens if usage else 0)
-            )
-        except Exception as e:
-            latency = round(perf_counter() - start, 4)
-            logger.error(f"Error el parseo de la respuesta: {e}")
-
-            if interaction and hasattr(interaction, 'usage'):
-                usage = interaction.usage
-
-            if message.content:
-                text = message.content
-            else:
-                text = None
-
-            return LLMResponse(
-                    text=text,
-                    provider="OPENAI",
-                    model=settings.opneai_default_model,
-                    latency=float(latency),
-                    input_tokens=int(usage.prompt_tokens or 0),
-                    thinking_tokens=0, 
-                    output_tokens=int(usage.completion_tokens or 0),
-                    total_tokens=int(usage.total_tokens or 0)
-                )
+    async def astream(self, prompt: str, *, system: str | None = None, temperature: float = 0.2) -> AsyncIterator[str]:
+        if not prompt.strip():
+            raise InvalidRequestError("El prompt no puede estar vacío")
+        try:
+            stream =  await self.aclient.responses.parse(
+                model=self.model,
+                instructions=system,
+                store=False,
+                input=prompt,
+                temperature= temperature_validator(temperature),
+                text_format=AnswerOpenAIScheme,
+                stream= True)
+            
+            async for chunk in stream:
+                text = chunk.delta or ""
+                if text:
+                    yield text
+        except Exception as exc:
+            raise self._map_exception(exc) from exc

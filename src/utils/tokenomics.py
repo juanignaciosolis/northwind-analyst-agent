@@ -32,10 +32,8 @@ def generar_reporte_markdown():
     df = pd.read_json(REGISTRO_JSON)
 
     total_input = df["input_tokens"].sum()
-    total_thinking = df["thinking_tokens"].sum()
     total_output = df["output_tokens"].sum()
     total_input_costo = df["costo_input"].sum()
-    total_thinking_costo = df["costo_thinking"].sum()
     total_output_costo = df["costo_output"].sum()
     total_costo = df["costo_total"].sum()
     avg_latencia = df["latencia_ms"].mean()
@@ -61,10 +59,8 @@ def generar_reporte_markdown():
     
     df_visible = df.copy()
     df_visible["input_tokens"] = df_visible["input_tokens"].map("{:,}".format)
-    df_visible["thinking_tokens"] = df_visible["thinking_tokens"].map("{:,}".format)
     df_visible["output_tokens"] = df_visible["output_tokens"].map("{:,}".format)
     df_visible["costo_input"] = df_visible["costo_input"].map("${:.5f}".format)
-    df_visible["costo_thinking"] = df_visible["costo_thinking"].map("${:.5f}".format)
     df_visible["costo_output"] = df_visible["costo_output"].map("${:.5f}".format)
     df_visible["costo_total"] = df_visible["costo_total"].map("${:.5f}".format)
     df_visible["costo_acumulado"] = df_visible["costo_acumulado"].map("${:.5f}".format)
@@ -79,7 +75,7 @@ def generar_reporte_markdown():
         f.write(f"| **Presupuesto Máximo Asignado** | ${PRESUPUESTO_MAXIMO:.4f} USD |\n")
         f.write(f"| **Costo Financiero Incurrido** | ${total_costo:.4f} USD |\n")
         f.write(f"| **Presupuesto Restante** | ${presupuesto_restante:.4f} USD |\n")
-        f.write(f"| Tokens Totales Consumidos | {total_input + total_output + total_thinking:,} tokens |\n")
+        f.write(f"| Tokens Totales Consumidos | {total_input + total_output:,} tokens |\n")
         f.write(f"| Latencia Promedio de API | {avg_latencia:,.3f} ms |\n\n")
 
         f.write(f"## Monitoreo Visual del Presupuesto\n\n")
@@ -88,7 +84,7 @@ def generar_reporte_markdown():
         f.write(f"## Anexo: Historial de Llamadas Detallado\n\n")
         # TRUCO SUPREMO: Pandas convierte todo el DataFrame a una tabla Markdown real en UN solo comando
         # Seleccionamos solo las columnas interesantes para la tabla
-        columnas_reporte = ["fecha", "hora", "provider", "model", "input_tokens","thinking_tokens", "output_tokens", "costo_total", "costo_acumulado"]
+        columnas_reporte = ["fecha", "hora", "provider", "model", "input_tokens", "output_tokens", "costo_total", "costo_acumulado"]
         tabla_md = df_visible[columnas_reporte].to_markdown(index=True)
         f.write(tabla_md)
         
@@ -102,7 +98,6 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
         
         model = getattr(respuesta, "model")
         input_tokens = getattr(respuesta, "input_tokens", 0)
-        thinking_tokens = getattr(respuesta, "thinking_tokens",0)
         output_tokens = getattr(respuesta, "output_tokens", 0)
         latencia_ms = getattr(respuesta, "latencia", 0.0)
         
@@ -112,22 +107,19 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
         }
         
         costo_input = input_tokens * (tarifas["input"] / 1000000)
-        costo_thinking = thinking_tokens* (tarifas["output"] / 1000000)
         costo_output = output_tokens* (tarifas["output"] / 1000000)
-        costo_total = costo_input + costo_thinking + costo_output
+        costo_total = costo_input + costo_output
         
         ahora = datetime.now()
         datos = {
             "timestamp": ahora.isoformat(),
             "fecha": ahora.strftime("%Y-%m-%d"),
             "hora": ahora.strftime("%H:%M"),
-            "provider": os.getenv("LLM_PROVIDER"),
+            "provider": settings.default_provider,
             "model": model,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
-            "thinking_tokens": thinking_tokens,
             "costo_input": costo_input,
-            "costo_thinking": costo_thinking,
             "costo_output": costo_output,
             "costo_total": costo_total,
             "latencia_ms": latencia_ms
@@ -140,16 +132,15 @@ def auditar_tokenomics(func: Callable[..., Any]) -> Callable[..., Any]:
         
         logger.info(
     f"┌─── [[bold blue] TELEMETRÍA LLM [/]] ────────────────────────────────────────\n"
-    f"│ 🤖 Modelo:    {model} ({os.getenv('LLM_PROVIDER')})\n"
+    f"│ 🤖 Modelo:    {model} ({settings.default_provider})\n"
     f"│ ⏱️ Latencia:  {latencia_ms:,.2f} ms\n"
     f"├─ Tokens ────────────────────────────────────────────────────\n"
     f"│ 📥 Input:     {input_tokens:,} tokens\n"
-    f"│ 🧠 Thinking:  {thinking_tokens:,} tokens\n"
     f"│ 📤 Output:    {output_tokens:,} tokens\n"
-    f"│ 📊 Total:     {input_tokens + thinking_tokens + output_tokens:,} tokens\n"
+    f"│ 📊 Total:     {input_tokens + output_tokens:,} tokens\n"
     f"├─ Finanzas ──────────────────────────────────────────────────\n"
     f"│ 💵 Costo In:  ${costo_input:.5f} USD\n"
-    f"│ 💵 Costo Out: ${costo_output + costo_thinking:.5f} USD\n"
+    f"│ 💵 Costo Out: ${costo_output:.5f} USD\n"
     f"│ 💰 Total:     ${costo_total:.5f} USD\n"
     f"└─────────────────────────────────────────────────────────────"
 )

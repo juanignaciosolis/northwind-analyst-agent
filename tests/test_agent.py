@@ -16,7 +16,8 @@ import pandas as pd
 from datetime import datetime
 import os
 
-from src.core.llm import get_llm_client
+from src.core.llm import build_provider
+from src.settings import settings
 from src.utils.database import  DatabaseManager, clean_sql_query
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.utils.helpers import format_sql_query
@@ -39,8 +40,7 @@ class EvaluationRecord:
     acierto: bool
     latencia: float
     tokens_input: int
-    thinking: int
-    outputs: int
+    tokens_outputs: int
     total_tokens: int
 
 
@@ -48,8 +48,6 @@ with open(TESTS_DIR / "eval_dataset.json", "r", encoding="utf-8") as archivo:
     datos = json.load(archivo)
 
 console = Console()
-
-system_prompt_content = zero_shot_system_prompt()
 
 console.rule("[bold yellow]INICIO DE TEST[/]",style="yellow",characters="=")
 
@@ -61,7 +59,7 @@ if system.upper() == "ZERO":
 else:
     system_prompt_content = few_shot_system_prompt()
 
-client = get_llm_client(system_prompt = system_prompt_content)
+client = build_provider(settings)
 
 resultados = []
 
@@ -75,7 +73,7 @@ with DatabaseManager() as db:
 
         console.print(f"[bold yellow]Pregunta: {pregunta}[/]\n")
 
-        respuesta = client.send_message(pregunta)
+        respuesta = client.generate(prompt=pregunta, system = system_prompt_content)
 
         df_python = json.loads(test["result"])
         df_esperado = pd.DataFrame(df_python)
@@ -89,8 +87,7 @@ with DatabaseManager() as db:
                 acierto= False,
                 latencia= respuesta.latency,
                 tokens_input= respuesta.input_tokens,
-                thinking= respuesta.thinking_tokens,
-                outputs= respuesta.output_tokens,
+                tokens_outputs= respuesta.output_tokens,
                 total_tokens= respuesta.total_tokens
             )
 
@@ -103,8 +100,7 @@ with DatabaseManager() as db:
                 acierto= False,
                 latencia= respuesta.latency,
                 tokens_input= respuesta.input_tokens,
-                thinking= respuesta.thinking_tokens,
-                outputs= respuesta.output_tokens,
+                tokens_outputs= respuesta.output_tokens,
                 total_tokens= respuesta.total_tokens
             )           
 
@@ -139,8 +135,7 @@ with DatabaseManager() as db:
                     acierto= acierto,
                     latencia= respuesta.latency,
                     tokens_input= respuesta.input_tokens,
-                    thinking= respuesta.thinking_tokens,
-                    outputs= respuesta.output_tokens,
+                    tokens_outputs= respuesta.output_tokens,
                     total_tokens= respuesta.total_tokens
                 )
         
@@ -200,8 +195,8 @@ console.rule("[bold violet]Aprete enter para FINALIZAR y generar reporte...[/]",
 stop = input()
 
 fecha =  datetime.now().strftime("%Y-%m-%d %H:%M")
-proveedor = os.getenv("LLM_PROVIDER",None)
-modelo = os.getenv("GEMINI_MODEL", None) if proveedor == "GEMINI" else os.getenv("OPENAI_MODEL")
+proveedor = settings.default_provider
+modelo = settings.gemini_default_model if proveedor == "GEMINI" else settings.openai_default_model
 system_prompt = "ZERO SHOTS" if system.upper() == "ZERO" else "FEW SHOTS"
 latencia_promedio = sum(resultado.latencia for resultado in resultados) / len(resultados)
 casos = len(resultados)
