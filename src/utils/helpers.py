@@ -18,6 +18,11 @@ def generate_rich_table(df: pd.DataFrame) -> Table:
         show_lines=True
     )
 
+    if df is None or not isinstance(df, pd.DataFrame):
+        table.add_column("Resultado", justify="center")
+        table.add_row("[italic yellow]Sin resultados para mostrar[/]")
+        return table
+
     # Agregar columnas
     for col in df.columns:
         # Alineamos a la derecha si es columna numérica, izquierda si es texto
@@ -42,7 +47,7 @@ def gerenate_rich_response(response_obj):
     
     # Usamos str(x or "N/A") para prevenir que un None rompa el renderizado
     metadata.add_row(f"[bold]Tipo:[/ ] {str(getattr(response_obj, 'type', 'N/A'))}")
-    metadata.add_row(f"[bold]Confianza:[/ ] {getattr(response_obj, 'confidence', 0):.2%}")
+    metadata.add_row(f"[bold]Confianza:[/ ] {getattr(response_obj, 'confidence', 0) or 0:.2%}")
     
     is_revision = getattr(response_obj, 'human_revision', False)
     metadata.add_row(f"[bold]Revision Humana:[/ ] {'[red]Sí[/]' if is_revision else '[green]No[/]'}")

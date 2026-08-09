@@ -66,6 +66,7 @@ def retry_backoff(max_retries: int,
                 try:
                     result = func(*args, **kwargs)
                     return CallOutcome(result=result, attempts=attempt, retries=tuple(retries))
+                
                 except RETRYABLE_ERRORS as exc:
                     error = exc
 
@@ -143,90 +144,6 @@ def aretry_backoff(max_retries: int,
         return wrapper
     return decorator
 
-
-
-
-
-
-def retry_backoff(intentos: int, delay: int) -> Callable:
-    
-    def decorator(func: Callable) -> Callable:
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-
-            resultado = None
-
-            prompt_base = kwargs.get("prompt","")
-
-            schema_error = None
-
-            max_intentos = intentos
-            intento = 1
-
-            logger.info("Realizando llamada..")
-
-            while intento <= max_intentos:
-
-                try:
-                    if schema_error:
-                        prompt_modificado = prompt_base + (
-                            "\n\n# ERROR\n"
-                            f"Tu respuesta anterior no respetó la estructura obligatoria. Error: {schema_error}\n"
-                            "Los esquemas de respuesta permitidos son:\n"
-                            "## RESPUESTA con 'sql_success':\n" 
-                            f"{SQL_SCHEMA_STR}\n"
-                            "## RESPUESTA con 'invalid_query':\n"
-                            f"{INV_SCHEMA_STR   }\n"
-                            "Generá una nueva respuesta distinta analizando de nuevo todo el contexto provisto")
-                        kwargs["prompt"] = prompt_modificado
-
-                    resultado = func(*args, **kwargs)
-
-                    if isinstance(resultado.text, (SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme)):
-                            respuesta = resultado.text
-                    else:
-                            respuesta = answer_validator_router.validate_json(resultado.text)
-
-                    if isinstance(respuesta, SQLAnswer):                 
-                        logger.info(f"Llama exitosa en {intento} intentos. Consulta SQL devuelta")
-                    else:
-                        logger.info(f"Llama exitosa en {intento} intentos. Error reportado")
-                    return resultado
-                except ValidationError as e:
-                    logger.error(f"[bold yellow]Llamada fallida: {e}, intento {intento}, se vuelve a intentar...[/]")
-                    potencia = delay ** intento
-                    if intento == max_intentos:
-                        break
-                    intento += 1
-                    schema_error = e 
-                    logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
-                    time.sleep(potencia)
-
-                except Exception as e:
-                    logger.error(f"[bold yellow]Llamada fallida: {e}, intento {intento}, se vuelve a intentar...[/]")
-                    potencia = delay ** intento
-                    if intento == max_intentos:
-                        break
-                    intento += 1
-                    logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
-                    time.sleep(potencia)
-            
-            logger.error(f"[bold red]Se acabaron todos lo intentos. En total {max_intentos}[/]")
-
-            return GenerationResult(
-            text=None, 
-            provider=settings.default_provider, 
-            model=settings.gemini_default_model or settings.openai_default_model,
-            latency= getattr(resultado,"latency",0) if resultado is not None else 0, 
-            input_tokens=getattr(resultado,"input_tokens",0) if resultado is not None else 0, 
-            output_tokens=getattr(resultado,"output_tokens",0) if resultado is not None else 0, 
-            total_tokens=getattr(resultado,"total_tokens",0) if resultado is not None else 0
-        )
-        
-        return wrapper
-    return decorator
-          
 
 
 if __name__ == "__main__":

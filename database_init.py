@@ -20,7 +20,7 @@ logger.info("Inicialización de la base de datos desde archivo SQL...")
 db_host = settings.db_host
 db_user = settings.db_user
 db_password = settings.get_db_password()
-db_name = settings.db_user
+db_name = settings.db_name
 db_port = settings.db_port
 
 SQL_FILE_PATH = Path(__file__).resolve().parent / "db" / "northwind.sql"

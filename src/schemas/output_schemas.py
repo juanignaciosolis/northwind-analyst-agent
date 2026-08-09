@@ -21,7 +21,9 @@ class InvalidAnswerScheme(BaseModel):
     resumen: str = Field(description="Descripcion sencilla y corta del error, problema o incoveniente",
                          max_length= 300)
     evidence: list[str] = Field(description="Citar de la pregunta del usuario evidencias del problema",
-                                min_length=1, max_length=3)   
+                                min_length=1, max_length=3)
+    human_revision: bool = Field(description="True, siempre requiere revision humana",
+                                 default=True)
     confidence: float = Field(
         ge=0.0,
         le=1.0,

@@ -40,3 +40,5 @@ def setup_logger(log_file: str = "logs/app.log",
     logger.addHandler(file_handler)
 
     return logger
+
+

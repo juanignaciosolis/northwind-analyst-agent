@@ -3,6 +3,7 @@ from dataclasses import asdict, dataclass
 import time
 from dataclasses import dataclass
 from typing import Optional, Protocol, AsyncIterator
+from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 
 @dataclass(frozen=True)
 class GenerationResult:
@@ -13,7 +14,7 @@ class GenerationResult:
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    text: str
+    text: SQLAnswer | InvalidAnswerScheme | AnswerOpenAIScheme
     finish_reason: str = "stop"
 
     def to_dict(self) -> dict:

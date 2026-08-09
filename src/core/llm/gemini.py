@@ -72,9 +72,16 @@ class GeminiClient:
 
     def _normalize(self, response, started: float) -> GenerationResult:
         text = response.parsed or ""
-        if not text:
-            raise InvalidProviderResponseError("Gemini devolvió texto vacío")
         input_tokens, output_tokens = self._usage(response)
+        if not text:
+            text = InvalidAnswerScheme(
+                type= "invalid_query",
+                error="Fallback",
+                resumen="El modelo genero una respuesta vacia",
+                evidence=["respuesta vacia"],
+                human_revision= True,
+                confidence= 0.2
+            )
         return GenerationResult(
             text=text,
             model=self.model,
@@ -111,8 +118,6 @@ class GeminiClient:
             answer = self._normalize(response, started)
 
             logger.info("Llamada exitosa!")
-
-            logger.debug(f"Respuesta generada por el modelo:\n[bold yellow]{response.parsed.model_dump_json(indent=4)}[/]")
 
             return answer
         

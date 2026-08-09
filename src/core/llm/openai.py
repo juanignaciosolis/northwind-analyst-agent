@@ -11,6 +11,7 @@ from typing import AsyncIterator
 
 from .contract import GenerationResult
 from src.utils.validators import temperature_validator,message_validator
+from src.utils.decorators import retry_backoff
 from src.prompts.user_prompt import prompt_constructor
 from src.utils.tokenomics import auditar_tokenomics
 from src.schemas.output_schemas import AnswerOpenAIScheme
@@ -57,7 +58,15 @@ class OpenAIClient:
     def _normalize(self, response, started: float) -> GenerationResult:
         text = response.output_parsed or ""
         if not text:
-            raise InvalidProviderResponseError("OpenAI devolvió texto vacío")
+            text = AnswerOpenAIScheme(
+                type = "OpenAI_scheme",
+                error="Fallback",
+                resumen="El modelo genero una respuesta vacia",
+                evidence=["respuesta vacia"],
+                human_revision=True,
+                confidence= 0.2
+            )
+            
         input_tokens, output_tokens = self._usage(response)
         return GenerationResult(
             text=text,
@@ -70,6 +79,7 @@ class OpenAIClient:
         )
 
     @auditar_tokenomics
+    @retry_backoff(3,0.3)
     def generate(self, prompt: str, *, system: str | None = None, temperature: float = 0.2, max_output_tokens: int | None = None) -> GenerationResult:
 
         logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")

@@ -59,6 +59,10 @@ if system.upper() == "ZERO":
 else:
     system_prompt_content = few_shot_system_prompt()
 
+console.print("[bold yellow]System prompt...[/]")
+console.print(system_prompt_content)
+
+
 client = build_provider(settings)
 
 resultados = []
@@ -91,7 +95,7 @@ with DatabaseManager() as db:
                 total_tokens= respuesta.total_tokens
             )
 
-        elif respuesta.text.query is None:
+        elif getattr(respuesta.text,"query",None) is None:
 
             resultado = EvaluationRecord(
                 pregunta= pregunta,
@@ -121,7 +125,7 @@ with DatabaseManager() as db:
                     pregunta +=("\n\n# ERROR\n"
                             "Tu respuesta anterior obtuvo el siguiente error:\n"
                             f"{e}\n")
-                    respuesta = client.send_message(pregunta)
+                    respuesta = client.generate(prompt=pregunta, system = system_prompt_content)
 
                     respuesta_curada = clean_sql_query(respuesta.text.query)
 

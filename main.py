@@ -19,12 +19,13 @@ from src.utils.database import DatabaseManager, clean_sql_query
 from src.utils.tokenomics import generar_reporte_markdown
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.utils.helpers import generate_rich_table, gerenate_rich_response
-from typing import Callable, Any, Annotated, Union
+from typing import Annotated, Union
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
-from psycopg2 import OperationalError, ProgrammingError, DataError, Error
+from psycopg2 import  ProgrammingError, DataError
 from pydantic import ValidationError, TypeAdapter, Field
 import json
 import time
+from src.utils.errors import InvalidProviderResponseError
 
 logger = logging.getLogger(__name__)
 
@@ -71,14 +72,20 @@ if __name__ == "__main__":
 
                         console.print(Panel(prompt, title="[bold violet]User Prompt[/]", border_style="violet"))
 
+                        intentos = 0
+
+                        original = prompt
+
                         for attemp in range(0,3):
 
                                 try:
                                         respuesta = client.generate(prompt=prompt, system = system_prompt_content)
 
-                                        content = respuesta.result.text
+                                        content = respuesta.text
 
-                                        answer_validator_router.validate_json(content)
+                                        answer_validator_router.validate_python(content)
+
+                                        resultado = content
 
                                         if getattr(content,"query",None):
 
@@ -86,13 +93,13 @@ if __name__ == "__main__":
 
                                                 resultado = db.execute(consulta)
 
-                                        resultado = content
+                                        break
 
                                 except ValidationError as e:
                                         logger.error(f"[bold red]Llamada fallida: {e}, intento {attemp}, se vuelve a intentar...[/]")
                                         potencia = 0.3 ** attemp
                                         logger.warning(f"[bold yellow]Se esperan {potencia} segundos antes de reintentar[/]")
-                                        prompt = prompt + (
+                                        prompt = original + (
                                                                 "\n\n# ERROR\n"
                                                                 f"Tu respuesta anterior no respetó la estructura obligatoria. Error: {e}\n"
                                                                 "Los esquemas de respuesta permitidos son:\n"
@@ -101,10 +108,17 @@ if __name__ == "__main__":
                                                                     "## RESPUESTA con 'invalid_query':\n"
                                                                 f"{INV_SCHEMA_STR   }\n"
                                                                 "Generá una nueva respuesta distinta analizando de nuevo todo el contexto provisto")
+                                        intentos += 1
+
                                         time.sleep(potencia)
 
+                                except InvalidProviderResponseError as e:
+                                        logger.error(f"[bold red]{e}. Se vuelve a reintentar[/]")
+
+                                        intentos += 1
+
                                 except (ProgrammingError, DataError) as e:
-                                                prompt = prompt + (
+                                                prompt = original + (
                                                         "\n\n# ERROR\n"
                                                         "Tu respuesta anterior obtuvo el siguiente error:\n"
                                                         f"{e}\n")
@@ -114,17 +128,34 @@ if __name__ == "__main__":
 
                                                 logger.info(f"Prompt corregido:\n[green]{prompt}[/]")
 
-                                                console.print(Panel(content, title="[bold dark_orange3]Agent Reformule Response[/]", border_style="dark_orange3"))
+                                                intentos += 1
 
                                 except Exception as e:
-                                        logger.error(f"[bold red]Llamada fallida: {e}, se alcanzo el maximo de intento2 {attemp}")
 
-                        
-                        content = gerenate_rich_response(respuesta.result)
+                                        logger.error(f"[bold red]Llamada fallida: {e}[/]")
+
+                                        intentos += 1
+
+                        if intentos == 3:
+
+                                logger.error(f"[bold red]Se alcanzo el maximo de intentos 3[/]")
+
+                                resultado = None
+
+                                content = InvalidAnswerScheme(type="invalid_query",
+                                                              error="Fallback",
+                                                              resumen="Respuesta vacia del modelo",
+                                                              evidence= ["Vacia"],
+                                                              confidence= 0)
+
+
+                        content = gerenate_rich_response(content)
 
                         console.print(Panel(content, title="[bold dark_orange3]Agent Response[/]", border_style="dark_orange3"))
-   
-                        console.print(Panel(resultado, title="[bold cyan]SQL query[/]", border_style="cyan"))
+
+                        resultados = generate_rich_table(resultado)
+                        
+                        console.print(Panel(resultados, title="[bold cyan]SQL query[/]", border_style="cyan"))
 
                         console.print("[bold yellow]Aprete enter para CONTINUAR...[/]", end="")
 
