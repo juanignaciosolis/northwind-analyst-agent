@@ -6,12 +6,16 @@ logger: Logger = logging.getLogger(__name__)
 import functools
 import time
 import os
+import asyncio
 from src.settings import settings
+from dataclasses import dataclass, asdict
 from typing import Callable, Any, Annotated, Union
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter, Field
 import json
 from src.core.llm.contract import GenerationResult
+from src.utils.errors import RETRYABLE_ERRORS, ProviderTimeoutError
+import random
 
 RespuestaUnion = Annotated[
     Union[SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme],
@@ -22,6 +26,127 @@ answer_validator_router = TypeAdapter(RespuestaUnion)
 
 SQL_SCHEMA_STR = json.dumps(SQLAnswer.model_json_schema(), ensure_ascii=False)
 INV_SCHEMA_STR = json.dumps(InvalidAnswerScheme.model_json_schema(), ensure_ascii=False)
+
+
+@dataclass(frozen=True)
+class RetryEvent:
+    attempt: int
+    error_type: str
+    message: str
+    next_delay_seconds: float
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class CallOutcome:
+    result: GenerationResult
+    attempts: int
+    retries: tuple[RetryEvent, ...]
+
+
+def retry_log(event: RetryEvent, delay: int) -> None:
+    logger.debug( event.to_dict())
+
+    logger.warning(f"Intento {event.attempt} FRACASADO. Se esperan {delay} antes de reintentar")
+
+
+def retry_backoff(max_retries: int, 
+                  base_delay_seconds: int, 
+                  jitter: bool = True,
+                  on_retry: Callable[[RetryEvent], None] | None = retry_log) -> Callable:
+    
+    def decorator(func: Callable) -> Callable:
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            retries: list[RetryEvent] = []
+            for attempt in range(1, max_retries + 2):
+                try:
+                    result = func(*args, **kwargs)
+                    return CallOutcome(result=result, attempts=attempt, retries=tuple(retries))
+                except RETRYABLE_ERRORS as exc:
+                    error = exc
+
+                    if attempt > max_retries:
+                        raise error
+
+                    delay = base_delay_seconds * (2 ** (attempt - 1))
+                    if jitter:
+                        delay *= random.uniform(0.8, 1.2)
+
+                    event = RetryEvent(
+                            attempt=attempt,
+                            error_type=type(error).__name__,
+                            message=str(error),
+                            next_delay_seconds=round(delay, 4),
+                            )
+                    retries.append(event)
+                    if on_retry:
+                        on_retry(event,delay)
+
+                    time.sleep(delay)
+
+            raise RuntimeError("Estado inalcanzable")
+
+        return wrapper
+    return decorator
+
+
+def aretry_backoff(max_retries: int, 
+                  base_delay_seconds: int, 
+                  jitter: bool = True,
+                  on_retry: Callable[[RetryEvent], None] | None = retry_log,
+                  timeout_seconds: float = 20.0) -> Callable:
+    
+    def decorator(func: Callable) -> Callable:
+
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs) -> Any:
+            retries: list[RetryEvent] = []
+            for attempt in range(1, max_retries + 2):
+                try:
+                    result = await asyncio.wait_for(func(*args, **kwargs), timeout= timeout_seconds)
+                    return CallOutcome(result=result, attempts=attempt, retries=tuple(retries))
+                
+                except asyncio.TimeoutError:
+                    error = ProviderTimeoutError(
+                    f"La llamada superó {timeout_seconds:.2f} segundos"
+                    )
+
+                except RETRYABLE_ERRORS as exc:
+                    error = exc
+
+                    if attempt > max_retries:
+                        raise error
+
+                    delay = base_delay_seconds * (2 ** (attempt - 1))
+
+                    if jitter:
+                        delay *= random.uniform(0.8, 1.2)
+
+                    event = RetryEvent(
+                            attempt=attempt,
+                            error_type=type(error).__name__,
+                            message=str(error),
+                            next_delay_seconds=round(delay, 4),
+                            )
+                    retries.append(event)
+                    if on_retry:
+                        on_retry(event,delay)
+
+                    time.sleep(delay)
+
+            raise RuntimeError("Estado inalcanzable")
+
+        return wrapper
+    return decorator
+
+
+
+
+
 
 def retry_backoff(intentos: int, delay: int) -> Callable:
     

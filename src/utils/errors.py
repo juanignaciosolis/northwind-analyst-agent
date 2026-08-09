@@ -68,7 +68,7 @@ class PartialStreamError(LLMError):
         super().__init__(message)
 
 
-RETRYABLE_DEMO_ERRORS = (
+RETRYABLE_ERRORS = (
     RateLimitError,
     ProviderTimeoutError,
     TransientProviderError,
