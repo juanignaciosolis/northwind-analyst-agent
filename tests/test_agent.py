@@ -61,8 +61,7 @@ else:
 
 console.print("[bold yellow]System prompt...[/]")
 console.print(system_prompt_content)
-
-
+    
 client = build_provider(settings)
 
 resultados = []
