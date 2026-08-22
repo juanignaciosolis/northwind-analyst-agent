@@ -40,7 +40,7 @@ class DatabaseManager:
             self.conn.close()
             logger.info("Conexión a la DB cerrada.")
 
-    def execute(self, query: str, limit: int = 20) -> pd.DataFrame:
+    def execute(self, query: str, limit: int | None = None) -> pd.DataFrame:
         """Gestiona el cursor y las transacciones de forma segura"""
         try:
             with self.conn.cursor() as cursor:
@@ -48,7 +48,10 @@ class DatabaseManager:
                 filas = cursor.fetchall()
                 columnas = [desc[0] for desc in cursor.description]
                 logger.info("Consulta ejecutada con exito!.")
-                return pd.DataFrame(filas, columns=columnas).head(limit)
+                if limit:
+                    return pd.DataFrame(filas, columns=columnas).head(limit)
+                else:
+                    return pd.DataFrame(filas, columns=columnas)
         except Exception as e:
             self.conn.rollback()
             logger.error(f"Error en consulta: {e}")

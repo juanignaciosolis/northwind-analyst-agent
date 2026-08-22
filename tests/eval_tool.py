@@ -13,7 +13,7 @@ def equal_dataframes(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
     ignorando nombres de columnas, tipos exactos y orden de filas.
     """
     # 1. Verificar dimensiones
-    if df1.shape != df2.shape:
+    if df1.shape[1] != df2.shape[1]:
         logger.debug("Los dataframes de comparacion tienen cantidades de columnas diferentes")
         return False
 

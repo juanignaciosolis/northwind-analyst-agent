@@ -1,6 +1,6 @@
 # 📊 Reporte Histórico de Evaluaciones (Evals)
 
-Última actualización: `2026-08-09 20:33:00`
+Última actualización: `2026-08-22 15:17:00`
 
 ## 📈 Tendencia de Precisión
 ![Evolución de Precisión](precision_evolucion.png)
@@ -18,3 +18,5 @@
 | 2026-08-08 23:30:00 | GEMINI     | gemini-3.1-flash-lite | ZERO SHOTS     |           468.496   |      22 |          2 |              15 |              5 | 9.1%        | 68.2%             | 22.7%            |
 | 2026-08-09 20:25:00 | GEMINI     | gemini-3.1-flash-lite | ZERO SHOTS     |          1435.02    |      22 |          3 |               9 |             10 | 13.6%       | 40.9%             | 45.5%            |
 | 2026-08-09 20:33:00 | OPENAI     | gpt-4o-mini           | ZERO SHOTS     |          2533.39    |      22 |          1 |               0 |             21 | 4.5%        | 0.0%              | 95.5%            |
+| 2026-08-22 15:15:00 | GEMINI     | gemini-3.1-flash-lite | ZERO SHOTS     |          8941.19    |      22 |          4 |               8 |             10 | 18.2%       | 36.4%             | 45.5%            |
+| 2026-08-22 15:17:00 | OPENAI     | gpt-4o-mini           | ZERO SHOTS     |          2647.75    |      22 |          3 |               0 |             19 | 13.6%       | 0.0%              | 86.4%            |

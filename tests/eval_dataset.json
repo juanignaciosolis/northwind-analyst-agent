@@ -1,244 +1,222 @@
 [
-  {
-    "question": "Cuanto fueron las ventas por anio, producto, categoria y cliente. Ordena por anio, cateogira, porducto y cliente",
-    "query": "SELECT d.year AS \"Año\", cat.categoryname AS \"Categoria\", p.productname AS \"Producto\", c.companyname AS \"Cliente\", SUM(salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN product p ON s.productkey = p.productkey\nJOIN category cat ON p.categorykey = cat.categorykey\nGROUP BY d.year, cat.categoryname, p.productname, c.companyname\nORDER BY d.year, cat.categoryname, p.productname, c.companyname",
-    "evidence": [
-      "SUM(salesamount)",
-      "JOIN category cat",
-      "GROUP BY d.year, cat.categoryname, p.productname, c.companyname",
-      "ORDER BY d.year, cat.categoryname, p.productname, c.companyname"
-    ],
-    "result": "[\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chai\",\n    \"Cliente\":\"Chop-suey Chinese\",\n    \"Ventas\":183.6\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chai\",\n    \"Cliente\":\"Die Wandernde Kuh\",\n    \"Ventas\":183.6\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chai\",\n    \"Cliente\":\"Lonesome Pine Restaurant\",\n    \"Ventas\":288.0\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chai\",\n    \"Cliente\":\"Pericles Comidas clásicas\",\n    \"Ventas\":172.8\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chai\",\n    \"Cliente\":\"QUICK-Stop\",\n    \"Ventas\":518.4\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chai\",\n    \"Cliente\":\"Rattlesnake Canyon Grocery\",\n    \"Ventas\":259.2\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chang\",\n    \"Cliente\":\"Ernst Handel\",\n    \"Ventas\":608.0\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chang\",\n    \"Cliente\":\"Folk och fä HB\",\n    \"Ventas\":836.0\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chang\",\n    \"Cliente\":\"Frankenversand\",\n    \"Ventas\":291.84\n  },\n  {\n    \"Año\":2016,\n    \"Categoria\":\"Beverages\",\n    \"Producto\":\"Chang\",\n    \"Cliente\":\"Richter Supermarkt\",\n    \"Ventas\":304.0\n  }\n]"
-  },
-  {
-    "question": "Cuanto fuero las ventas anuales por pais del cliente y del proveedor",
-    "query": "SELECT d.year AS \"Año\", ct.countryname AS \"País del cliente\", ct2.countryname AS \"País del proveedor\", SUM(s.salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nJOIN supplier sp ON sp.supplierkey = s.supplierkey\nJOIN city cy2 ON cy2.citykey = sp.citykey\nJOIN state st2 ON st2.statekey = cy2.statekey\nJOIN country ct2 ON ct2.countrykey = st2.countrykey\nGROUP BY d.year, ct.countryname, ct2.countryname\nORDER BY d.year, ct.countryname, ct2.countryname",
-    "evidence": [
-      "JOIN country ct",
-      "JOIN country ct2",
-      "JOIN supplier sp",
-      "GROUP BY d.year, ct.countryname, ct2.countryname"
-    ],
-    "result": "[\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Australia\",\n    \"Ventas\":1075.4999\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Brazil\",\n    \"Ventas\":100.8\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Denmark\",\n    \"Ventas\":432.0\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"France\",\n    \"Ventas\":12437.2\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Germany\",\n    \"Ventas\":3581.2803\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Italy\",\n    \"Ventas\":1653.36\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Japan\",\n    \"Ventas\":616.0\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Norway\",\n    \"Ventas\":1560.0\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"Spain\",\n    \"Ventas\":161.28\n  },\n  {\n    \"Año\":2016,\n    \"País del cliente\":\"Austria\",\n    \"País del proveedor\":\"United Kingdom\",\n    \"Ventas\":644.0\n  }\n]"
-  },
-  {
-    "question": "Cuanto fueron las ventas mensuales por pais de consumidor comparada con la del mes anterior",
-    "query": "WITH monthly_sales AS (\nSELECT d.year, d.monthnumber, ct.countryname, SUM(salesamount) as salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN customer c on c.customerkey = s.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nGROUP BY d.year, d.monthnumber, ct.countryname\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", countryname AS \"País\", salesamount AS \"Ventas\",\nLAG(salesamount) OVER(PARTITION BY countryname ORDER BY year,monthnumber) AS \"Ventas del mes anterior\"\nFROM monthly_sales",
-    "evidence": [
-      "LAG(salesamount)",
-      "OVER(PARTITION BY countryname ORDER BY year,monthnumber)",
-      "GROUP BY d.year, d.monthnumber, ct.countryname",
-      "WITH monthly_sales AS"
-    ],
-    "result": "[\n  {\n    \"Año\":2017,\n    \"Mes\":1,\n    \"País\":\"Argentina\",\n    \"Ventas\":319.2,\n    \"Ventas del mes anterior\":null\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":2,\n    \"País\":\"Argentina\",\n    \"Ventas\":443.4,\n    \"Ventas del mes anterior\":319.2\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":4,\n    \"País\":\"Argentina\",\n    \"Ventas\":225.5,\n    \"Ventas del mes anterior\":443.4\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":5,\n    \"País\":\"Argentina\",\n    \"Ventas\":110.0,\n    \"Ventas del mes anterior\":225.5\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":10,\n    \"País\":\"Argentina\",\n    \"Ventas\":706.0,\n    \"Ventas del mes anterior\":110.0\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":12,\n    \"País\":\"Argentina\",\n    \"Ventas\":12.5,\n    \"Ventas del mes anterior\":706.0\n  },\n  {\n    \"Año\":2018,\n    \"Mes\":1,\n    \"País\":\"Argentina\",\n    \"Ventas\":1087.0,\n    \"Ventas del mes anterior\":12.5\n  },\n  {\n    \"Año\":2018,\n    \"Mes\":2,\n    \"País\":\"Argentina\",\n    \"Ventas\":866.7,\n    \"Ventas del mes anterior\":1087.0\n  },\n  {\n    \"Año\":2018,\n    \"Mes\":3,\n    \"País\":\"Argentina\",\n    \"Ventas\":3645.8,\n    \"Ventas del mes anterior\":866.7\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":7,\n    \"País\":\"Austria\",\n    \"Ventas\":3488.6802,\n    \"Ventas del mes anterior\":null\n  }\n]"
-  },
-  {
-    "question": "Cuanto fue el crecimiento mensual de ventas por producto?. Es decir, la ventas por mes de cada producto respecto a las del mes anterior",
-    "query": "WITH monthly_sales AS (\nSELECT d.year, d.monthnumber, p.productname, SUM(salesamount) as salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nGROUP BY d.year, d.monthnumber, p.productname\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", productname AS \"Producto\", salesamount AS \"Ventas\",\nLAG(salesamount) OVER(PARTITION BY productname ORDER BY year,monthnumber) AS \"Ventas del mes anterior\"\nFROM monthly_sales",
-    "evidence": [
-      "LAG(salesamount)",
-      "OVER(PARTITION BY productname ORDER BY year,monthnumber)",
-      "GROUP BY d.year, d.monthnumber, p.productname",
-      "JOIN product p"
-    ],
-    "result": "[\n  {\n    \"Año\":2016,\n    \"Mes\":7,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":936.0,\n    \"Ventas del mes anterior\":null\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":8,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":819.0,\n    \"Ventas del mes anterior\":936.0\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":9,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":1248.0,\n    \"Ventas del mes anterior\":819.0\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":10,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":2948.4001,\n    \"Ventas del mes anterior\":1248.0\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":11,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":1010.88,\n    \"Ventas del mes anterior\":2948.4001\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":1,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":2355.6,\n    \"Ventas del mes anterior\":1010.88\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":2,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":312.0,\n    \"Ventas del mes anterior\":2355.6\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":5,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":2718.2998,\n    \"Ventas del mes anterior\":312.0\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":6,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":1294.8,\n    \"Ventas del mes anterior\":2718.2998\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":7,\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas\":3900.0,\n    \"Ventas del mes anterior\":1294.8\n  }\n]"
-  },
-  {
-    "question": "Dame los 3 empleados (con apellido y nombre juntos) que mas ventas consiguieron",
-    "query": "SELECT lastname || ' ' || firstname AS \"Empleado\", SUM(salesamount) as \"Ventas\"\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nGROUP BY lastname,firstname\nORDER BY SUM(salesamount) DESC\nLIMIT 3",
-    "evidence": [
-      "SUM(salesamount)",
-      "JOIN employee e",
-      "ORDER BY SUM(salesamount) DESC",
-      "LIMIT 3"
-    ],
-    "result": "[\n  {\n    \"Empleado\":\"Peacock Margaret\",\n    \"Ventas\":217469.14\n  },\n  {\n    \"Empleado\":\"Leverling Janet\",\n    \"Ventas\":176515.05\n  },\n  {\n    \"Empleado\":\"Davolio Nancy\",\n    \"Ventas\":175837.25\n  }\n]"
-  },
-  {
-    "question": "Cuales fueron los empleados (con apellido y nombre juntos) que mas ventas consiguieron por producto y en cada año",
-    "query": "WITH ranking AS (\nSELECT d.year, p.productname, e.lastname, e.firstname, SUM(s.salesamount) AS salesamount,\nRANK() OVER (PARTITION BY d.year, p.productname ORDER BY SUM(s.salesamount) DESC ) as rank\nFROM sales s\nJOIN product p ON s.productkey = p.productkey\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN employee e ON e.employeekey = s.employeekey \nGROUP BY d.year, p.productname, e.lastname, e.firstname\n)\nSELECT year AS \"Año\", productname AS \"Producto\", lastname || '' || firstname AS \"Empleado\", salesamount AS \"Ventas\"\nFROM ranking\nWHERE rank = 1",
-    "evidence": [
-      "RANK() OVER",
-      "PARTITION BY d.year, p.productname",
-      "ORDER BY SUM(s.salesamount) DESC",
-      "WHERE rank = 1"
-    ],
-    "result": "[\n  {\n    \"Año\":2016,\n    \"Producto\":\"Alice Mutton\",\n    \"Empleado\":\"FullerAndrew\",\n    \"Ventas\":3010.8\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Aniseed Syrup\",\n    \"Empleado\":\"KingRobert\",\n    \"Ventas\":240.0\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Boston Crab Meat\",\n    \"Empleado\":\"LeverlingJanet\",\n    \"Ventas\":837.9\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Camembert Pierrot\",\n    \"Empleado\":\"BuchananSteven\",\n    \"Ventas\":3495.2002\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Carnarvon Tigers\",\n    \"Empleado\":\"LeverlingJanet\",\n    \"Ventas\":1600.0\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Chai\",\n    \"Empleado\":\"DavolioNancy\",\n    \"Ventas\":518.4\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Chang\",\n    \"Empleado\":\"DavolioNancy\",\n    \"Ventas\":893.0\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Chartreuse verte\",\n    \"Empleado\":\"DavolioNancy\",\n    \"Ventas\":944.64\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Chef Anton's Cajun Seasoning\",\n    \"Empleado\":\"PeacockMargaret\",\n    \"Ventas\":1038.4\n  },\n  {\n    \"Año\":2016,\n    \"Producto\":\"Chef Anton's Gumbo Mix\",\n    \"Empleado\":\"DavolioNancy\",\n    \"Ventas\":884.0\n  }\n]"
-  },
-  {
-    "question": "Cuales son los países que componen el 50% de nuestras ventas",
-    "query": "WITH countries_sales AS (\nSELECT ct.countryname, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN customer c on c.customerkey = s.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nGROUP BY  ct.countryname\n),\nshare AS (\nSELECT countryname, salesamount, SUM(salesamount) OVER(ORDER BY salesamount DESC)/ SUM(salesamount) OVER() AS share,\nsalesamount / SUM(salesamount) OVER() AS sales_percent\nFROM countries_sales\n)\nSELECT countryname AS \"País\", salesamount AS \"Ventas\", sales_percent * 100 AS \"Porcentaje de ventas\"\nFROM share\nWHERE share <= 0.5",
-    "evidence": [
-      "SUM(salesamount) OVER(ORDER BY salesamount DESC)/ SUM(salesamount) OVER()",
-      "salesamount / SUM(salesamount) OVER()",
-      "share <= 0.5",
-      "GROUP BY  ct.countryname"
-    ],
-    "result": "[\n  {\n    \"País\":\"United States\",\n    \"Ventas\":238490.39,\n    \"Porcentaje de ventas\":20.8260193467\n  },\n  {\n    \"País\":\"Germany\",\n    \"Ventas\":219356.06,\n    \"Porcentaje de ventas\":19.1551268101\n  }\n]"
-  },
-  {
-    "question": "Quiero el total de las ventas y el promedio mensual de ventas por empleado (apellido y nombre juntos) y por año. Ordenado por apellido, nombre y el anio",
-    "query": "WITH monthly_sales AS (\nSELECT e.lastname, e.firstname, d.year, d.monthnumber, SUM(s.salesamount :: numeric) AS salesamount\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY lastname, firstname, year, monthnumber\n)\nSELECT lastname || ' ' || firstname AS \"Empleado\", year AS \"Año\",\nSUM(salesamount) AS \"Ventas Totales\", AVG(salesamount) AS \"Ventas promedio mensuales\"\nFROM monthly_sales\nGROUP BY lastname, firstname, year\nORDER BY lastname, firstname, year",
-    "evidence": [
-      "AVG(salesamount)",
-      "SUM(s.salesamount :: numeric)",
-      "GROUP BY lastname, firstname, year, monthnumber",
-      "GROUP BY lastname, firstname, year"
-    ],
-    "result": "[\n  {\n    \"Empleado\":\"Buchanan Steven\",\n    \"Año\":2016,\n    \"Ventas Totales\":\"18285.92\",\n    \"Ventas promedio mensuales\":\"3657.1840000000000000\"\n  },\n  {\n    \"Empleado\":\"Buchanan Steven\",\n    \"Año\":2017,\n    \"Ventas Totales\":\"29232.593\",\n    \"Ventas promedio mensuales\":\"3248.0658888888888889\"\n  },\n  {\n    \"Empleado\":\"Buchanan Steven\",\n    \"Año\":2018,\n    \"Ventas Totales\":\"19691.895\",\n    \"Ventas promedio mensuales\":\"4922.9737500000000000\"\n  },\n  {\n    \"Empleado\":\"Callahan Laura\",\n    \"Año\":2016,\n    \"Ventas Totales\":\"20678.3\",\n    \"Ventas promedio mensuales\":\"3446.3833333333333333\"\n  },\n  {\n    \"Empleado\":\"Callahan Laura\",\n    \"Año\":2017,\n    \"Ventas Totales\":\"52505.2895\",\n    \"Ventas promedio mensuales\":\"4375.4407916666666667\"\n  },\n  {\n    \"Empleado\":\"Callahan Laura\",\n    \"Año\":2018,\n    \"Ventas Totales\":\"44335.342\",\n    \"Ventas promedio mensuales\":\"11083.8355000000000000\"\n  },\n  {\n    \"Empleado\":\"Davolio Nancy\",\n    \"Año\":2016,\n    \"Ventas Totales\":\"32245.09\",\n    \"Ventas promedio mensuales\":\"5374.1816666666666667\"\n  },\n  {\n    \"Empleado\":\"Davolio Nancy\",\n    \"Año\":2017,\n    \"Ventas Totales\":\"86871.133\",\n    \"Ventas promedio mensuales\":\"7239.2610833333333333\"\n  },\n  {\n    \"Empleado\":\"Davolio Nancy\",\n    \"Año\":2018,\n    \"Ventas Totales\":\"56721.041\",\n    \"Ventas promedio mensuales\":\"11344.2082000000000000\"\n  },\n  {\n    \"Empleado\":\"Dodsworth Anne\",\n    \"Año\":2016,\n    \"Ventas Totales\":\"9894.515\",\n    \"Ventas promedio mensuales\":\"3298.1716666666666667\"\n  }\n]"
-  },
-  {
-    "question": "Cuantas fueron las ventas mensuales y los descuentos aplicados por cada producto",
-    "query": "SELECT p.productname AS \"Producto\", d.year AS \"Año\", d.monthnumber AS \"Mes\",\nSUM(s.salesamount) AS \"Ventas\", SUM( s.salesamount * s.discount) AS \"Descuentos\"\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nGROUP BY p.productname, d.year, d.monthnumber\nORDER BY p.productname, d.year, d.monthnumber",
-    "evidence": [
-      "SUM(s.salesamount)",
-      "SUM( s.salesamount * s.discount)",
-      "GROUP BY p.productname, d.year, d.monthnumber",
-      "JOIN product p"
-    ],
-    "result": "[\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2016,\n    \"Mes\":7,\n    \"Ventas\":936.0,\n    \"Descuentos\":0.0\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2016,\n    \"Mes\":8,\n    \"Ventas\":819.0,\n    \"Descuentos\":87.75\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2016,\n    \"Mes\":9,\n    \"Ventas\":1248.0,\n    \"Descuentos\":0.0\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2016,\n    \"Mes\":10,\n    \"Ventas\":2948.4001,\n    \"Descuentos\":103.740005\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2016,\n    \"Mes\":11,\n    \"Ventas\":1010.88,\n    \"Descuentos\":101.088005\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2017,\n    \"Mes\":1,\n    \"Ventas\":2355.6,\n    \"Descuentos\":517.14\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2017,\n    \"Mes\":2,\n    \"Ventas\":312.0,\n    \"Descuentos\":0.0\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2017,\n    \"Mes\":5,\n    \"Ventas\":2718.2998,\n    \"Descuentos\":115.829994\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2017,\n    \"Mes\":6,\n    \"Ventas\":1294.8,\n    \"Descuentos\":29.64\n  },\n  {\n    \"Producto\":\"Alice Mutton\",\n    \"Año\":2017,\n    \"Mes\":7,\n    \"Ventas\":3900.0,\n    \"Descuentos\":0.0\n  }\n]"
-  },
-  {
-    "question": "Dame las ventas acumuladas mensuales por cada categoria de producto. Ordenalas por cateogria, anio y producto",
-    "query": "WITH monthly_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY categoryname, year, monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", SUM(salesamount) OVER(PARTITION BY categoryname ORDER BY year, monthnumber) AS \"Ventas mensuales acumuladas\"\nFROM monthly_sales\nORDER BY categoryname, year, monthnumber",
-    "evidence": [
-      "SUM(salesamount) OVER",
-      "PARTITION BY categoryname",
-      "ORDER BY year, monthnumber",
-      "GROUP BY categoryname, year, monthnumber"
-    ],
-    "result": "[\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":7,\n    \"Ventas mensuales acumuladas\":3182.5\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":8,\n    \"Ventas mensuales acumuladas\":6577.38\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":9,\n    \"Ventas mensuales acumuladas\":8996.98\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":10,\n    \"Ventas mensuales acumuladas\":15700.82\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":11,\n    \"Ventas mensuales acumuladas\":32862.88\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":12,\n    \"Ventas mensuales acumuladas\":41934.68\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":1,\n    \"Ventas mensuales acumuladas\":63752.438\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":2,\n    \"Ventas mensuales acumuladas\":65862.28\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":3,\n    \"Ventas mensuales acumuladas\":75836.76\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":4,\n    \"Ventas mensuales acumuladas\":82324.61\n  }\n]"
-  },
-  {
-    "question": "Dame el promedio movil de las ultimas 3 ventas mensuales por categoria de producto",
-    "query": "WITH monthly_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount :: numeric) AS salesamount\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY categoryname, year, monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", \nAVG(salesamount) OVER(\nPARTITION BY categoryname \nORDER BY year, monthnumber\nROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS \"Promedio movil últimos 3 meses\"\nFROM monthly_sales\nORDER BY categoryname, year, monthnumber",
-    "evidence": [
-      "AVG(salesamount) OVER",
-      "PARTITION BY categoryname",
-      "ORDER BY year, monthnumber",
-      "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW"
-    ],
-    "result": "[\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":7,\n    \"Promedio movil últimos 3 meses\":\"3182.5000000000000000\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":8,\n    \"Promedio movil últimos 3 meses\":\"3288.6900000000000000\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":9,\n    \"Promedio movil últimos 3 meses\":\"2998.9933333333333333\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":10,\n    \"Promedio movil últimos 3 meses\":\"4172.7733333333333333\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":11,\n    \"Promedio movil últimos 3 meses\":\"8761.8333333333333333\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":12,\n    \"Promedio movil últimos 3 meses\":\"10979.2333333333333333\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":1,\n    \"Promedio movil últimos 3 meses\":\"16017.206666666667\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":2,\n    \"Promedio movil últimos 3 meses\":\"10999.8000000000000000\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":3,\n    \"Promedio movil últimos 3 meses\":\"11300.6933333333333333\"\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":4,\n    \"Promedio movil últimos 3 meses\":\"6190.7233333333333333\"\n  }\n]"
-  },
-  {
-    "question": "Quiero que me compares las ventas totales de un empleado contra el total de las realizadas por el y todos sus subordinados en el año 2017",
-    "query": "WITH RECURSIVE hierarchy AS (\nSELECT e.lastname, e.firstname, e.employeekey AS bosskey, e.employeekey AS subordinatekey\nFROM employee e\nUNION ALL\nSELECT h.lastname, h.firstname, h.bosskey, e.employeekey AS subordinatekey\nFROM employee e\nJOIN hierarchy h ON e.supervisorkey = h.subordinatekey\n),\nemployee_sales AS (\nSELECT s.employeekey, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nWHERE d.year = 2017\nGROUP BY s.employeekey\n)\nSELECT h.lastname || ' ' || h.firstname AS \"Empleado\", es2.salesamount AS \"Ventas propias\", SUM(es.salesamount) \"Ventas del equipo\"\nFROM employee_sales es\nJOIN hierarchy h ON h.subordinatekey = es.employeekey\nJOIN employee_sales es2 ON es2.employeekey = h.bosskey\nGROUP BY h.lastname, h.firstname, es2.salesamount",
-    "evidence": [
-      "WITH RECURSIVE hierarchy",
-      "UNION ALL",
-      "JOIN hierarchy h ON h.subordinatekey = es.employeekey",
-      "WHERE d.year = 2017"
-    ],
-    "result": "[\n  {\n    \"Empleado\":\"Buchanan Steven\",\n    \"Ventas propias\":29232.594,\n    \"Ventas del equipo\":143274.72\n  },\n  {\n    \"Empleado\":\"Callahan Laura\",\n    \"Ventas propias\":52505.293,\n    \"Ventas del equipo\":52505.293\n  },\n  {\n    \"Empleado\":\"Davolio Nancy\",\n    \"Ventas propias\":86871.12,\n    \"Ventas del equipo\":86871.12\n  },\n  {\n    \"Empleado\":\"Dodsworth Anne\",\n    \"Ventas propias\":18099.295,\n    \"Ventas del equipo\":18099.295\n  },\n  {\n    \"Empleado\":\"Fuller Andrew\",\n    \"Ventas propias\":62848.746,\n    \"Ventas del equipo\":570199.6\n  },\n  {\n    \"Empleado\":\"King Robert\",\n    \"Ventas propias\":58219.6,\n    \"Ventas del equipo\":58219.6\n  },\n  {\n    \"Empleado\":\"Leverling Janet\",\n    \"Ventas propias\":99683.93,\n    \"Ventas del equipo\":99683.93\n  },\n  {\n    \"Empleado\":\"Peacock Margaret\",\n    \"Ventas propias\":125015.81,\n    \"Ventas del equipo\":125015.81\n  },\n  {\n    \"Empleado\":\"Suyama Michael\",\n    \"Ventas propias\":37723.227,\n    \"Ventas del equipo\":37723.227\n  }\n]"
-  },
-  {
-    "question": "Quiero que para cada orden me digas el monto total de venta, numeros de productos y las cantidades totales",
-    "query": "SELECT orderno AS \"Orden\", SUM(salesamount) AS  \"Monto de venta\",\nCOUNT(productkey) AS \"Cantidad de productos\", SUM(quantity) AS \"Cantidades vendidas\"\nFROM sales\nGROUP BY orderno",
-    "evidence": [
-      "SUM(salesamount)",
-      "COUNT(productkey)",
-      "SUM(quantity)",
-      "GROUP BY orderno"
-    ],
-    "result": "[\n  {\n    \"Orden\":10725,\n    \"Monto de venta\":287.8,\n    \"Cantidad de productos\":3,\n    \"Cantidades vendidas\":22\n  },\n  {\n    \"Orden\":11038,\n    \"Monto de venta\":732.6,\n    \"Cantidad de productos\":3,\n    \"Cantidades vendidas\":37\n  },\n  {\n    \"Orden\":10782,\n    \"Monto de venta\":12.5,\n    \"Cantidad de productos\":1,\n    \"Cantidades vendidas\":1\n  },\n  {\n    \"Orden\":10423,\n    \"Monto de venta\":1020.0,\n    \"Cantidad de productos\":2,\n    \"Cantidades vendidas\":34\n  },\n  {\n    \"Orden\":10518,\n    \"Monto de venta\":3975.0,\n    \"Cantidad de productos\":2,\n    \"Cantidades vendidas\":20\n  },\n  {\n    \"Orden\":10356,\n    \"Monto de venta\":1106.4,\n    \"Cantidad de productos\":3,\n    \"Cantidades vendidas\":62\n  },\n  {\n    \"Orden\":10596,\n    \"Monto de venta\":1180.8801,\n    \"Cantidad de productos\":3,\n    \"Cantidades vendidas\":59\n  },\n  {\n    \"Orden\":10282,\n    \"Monto de venta\":155.4,\n    \"Cantidad de productos\":2,\n    \"Cantidades vendidas\":8\n  },\n  {\n    \"Orden\":10963,\n    \"Monto de venta\":57.8,\n    \"Cantidad de productos\":1,\n    \"Cantidades vendidas\":2\n  },\n  {\n    \"Orden\":10658,\n    \"Monto de venta\":4464.6,\n    \"Cantidad de productos\":4,\n    \"Cantidades vendidas\":255\n  }\n]"
-  },
-  {
-    "question": "Para cada mes quiero que me digas las ventas totales, la cantidad de ordenes emitidas y el ticket promedio. Ordena por anio y mes",
-    "query": "WITH order_sales AS(\nSELECT d.year, d.monthnumber, s.orderno, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nGROUP BY d.year, d.monthnumber, s.orderno\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", SUM(salesamount) AS \"Ventas totales\",\nCOUNT(orderno) AS \"Cantidad de órdenes\", AVG(salesamount :: numeric) AS \"Ticker promedio\"\nFROM order_sales\nGROUP BY year, monthnumber\nORDER BY year, monthnumber",
-    "evidence": [
-      "COUNT(orderno)",
-      "AVG(salesamount :: numeric)",
-      "GROUP BY d.year, d.monthnumber, s.orderno",
-      "GROUP BY year, monthnumber"
-    ],
-    "result": "[\n  {\n    \"Año\":2016,\n    \"Mes\":7,\n    \"Ventas totales\":27246.096,\n    \"Cantidad de órdenes\":21,\n    \"Ticker promedio\":\"1297.4330952380952381\"\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":8,\n    \"Ventas totales\":23104.977,\n    \"Cantidad de órdenes\":25,\n    \"Ticker promedio\":\"924.1990000000000000\"\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":9,\n    \"Ventas totales\":20582.398,\n    \"Cantidad de órdenes\":21,\n    \"Ticker promedio\":\"980.1142857142857143\"\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":10,\n    \"Ventas totales\":33991.566,\n    \"Cantidad de órdenes\":25,\n    \"Ticker promedio\":\"1359.6624000000000000\"\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":11,\n    \"Ventas totales\":44365.42,\n    \"Cantidad de órdenes\":25,\n    \"Ticker promedio\":\"1774.6168000000000000\"\n  },\n  {\n    \"Año\":2016,\n    \"Mes\":12,\n    \"Ventas totales\":42559.406,\n    \"Cantidad de órdenes\":29,\n    \"Ticker promedio\":\"1467.5658620689655172\"\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":1,\n    \"Ventas totales\":57187.258,\n    \"Cantidad de órdenes\":31,\n    \"Ticker promedio\":\"1844.7501612903225806\"\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":2,\n    \"Ventas totales\":36275.13,\n    \"Cantidad de órdenes\":29,\n    \"Ticker promedio\":\"1250.8665517241379310\"\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":3,\n    \"Ventas totales\":37100.844,\n    \"Cantidad de órdenes\":30,\n    \"Ticker promedio\":\"1236.6948333333333333\"\n  },\n  {\n    \"Año\":2017,\n    \"Mes\":4,\n    \"Ventas totales\":47209.05,\n    \"Cantidad de órdenes\":29,\n    \"Ticker promedio\":\"1627.8983448275862069\"\n  }\n]"
-  },
-  {
-    "question": "Dame por cada empleado (apellido y nombre juntos) el monto total vendido, el numero de clientes gestionados y el numero de ciudades y estados a los que fue asignado",
-    "query": "SELECT e.lastname || ' ' || e.firstname AS \"Empleado\", SUM(s.salesamount) AS \"Ventas totales\",\nCOUNT (DISTINCT s.customerkey) AS \"Clientes gestionados\", COUNT(DISTINCT c.citykey) AS \"Ciudades asignadas\",\nCOUNT( DISTINCT st.statekey) AS \"Estados asignados\"\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nJOIN territories t ON t.employeekey = s.employeekey\nJOIN city c ON c.citykey = t.citykey\nJOIN state st ON st.statekey = c.statekey\nGROUP BY e.lastname, e.firstname",
-    "evidence": [
-      "COUNT (DISTINCT s.customerkey)",
-      "COUNT(DISTINCT c.citykey)",
-      "COUNT( DISTINCT st.statekey)",
-      "JOIN territories t"
-    ],
-    "result": "[\n  {\n    \"Empleado\":\"Buchanan Steven\",\n    \"Ventas totales\":336052.25,\n    \"Clientes gestionados\":29,\n    \"Ciudades asignadas\":5,\n    \"Estados asignados\":3\n  },\n  {\n    \"Empleado\":\"Callahan Laura\",\n    \"Ventas totales\":470075.62,\n    \"Clientes gestionados\":54,\n    \"Ciudades asignadas\":4,\n    \"Estados asignados\":3\n  },\n  {\n    \"Empleado\":\"Davolio Nancy\",\n    \"Ventas totales\":175837.25,\n    \"Clientes gestionados\":63,\n    \"Ciudades asignadas\":1,\n    \"Estados asignados\":1\n  },\n  {\n    \"Empleado\":\"Dodsworth Anne\",\n    \"Ventas totales\":474584.66,\n    \"Clientes gestionados\":27,\n    \"Ciudades asignadas\":7,\n    \"Estados asignados\":5\n  },\n  {\n    \"Empleado\":\"Fuller Andrew\",\n    \"Ventas totales\":865282.5600000001,\n    \"Clientes gestionados\":57,\n    \"Ciudades asignadas\":6,\n    \"Estados asignados\":3\n  },\n  {\n    \"Empleado\":\"King Robert\",\n    \"Ventas totales\":1147115.5,\n    \"Clientes gestionados\":42,\n    \"Ciudades asignadas\":10,\n    \"Estados asignados\":3\n  },\n  {\n    \"Empleado\":\"Leverling Janet\",\n    \"Ventas totales\":706059.4,\n    \"Clientes gestionados\":61,\n    \"Ciudades asignadas\":4,\n    \"Estados asignados\":2\n  },\n  {\n    \"Empleado\":\"Peacock Margaret\",\n    \"Ventas totales\":652407.9,\n    \"Clientes gestionados\":73,\n    \"Ciudades asignadas\":3,\n    \"Estados asignados\":2\n  },\n  {\n    \"Empleado\":\"Suyama Michael\",\n    \"Ventas totales\":319410.75,\n    \"Clientes gestionados\":41,\n    \"Ciudades asignadas\":5,\n    \"Estados asignados\":3\n  }\n]"
-  },
-  {
-    "question": "Quiero saber el tiempo de entrega de los pedidos y sus días de atraso por transportista y destino.",
-    "query": "SELECT DISTINCT orderno AS \"Pedido\", d2.date AS \"Fecha estimada de entrega\",\nd2.date - d1.date AS \"Días para la entrega\", d3.date AS \"Fecha de entrega\",\nd3.date - d2.date AS \"Días de atraso\", sh.companyname AS \"Transportista\",\nci.cityname AS \"Ciudad\", st.statename AS \"Estado\", co.countryname AS \"País\", con.continentname AS \"Continente\"\nFROM sales s\nJOIN date d1 ON d1.datekey = s.orderdatekey\nJOIN date d2 ON d2.datekey = s.shippeddatekey\nJOIN date d3 ON d3.datekey = s.duedatekey\nJOIN shipper sh ON sh.shipperkey = s.shipperkey\nJOIN customer c ON c.customerkey = s.customerkey\nJOIN city ci ON ci.citykey = c.citykey\nJOIN state st ON st.statekey = ci.statekey\nJOIN country co ON co.countrykey = st.countrykey\nJOIN continent con ON con.continentkey = co.continentkey",
-    "evidence": [
-      "d2.date - d1.date",
-      "d3.date - d2.date",
-      "JOIN shipper sh",
-      "JOIN continent con"
-    ],
-    "result": "[\n  {\n    \"Pedido\":10774,\n    \"Fecha estimada de entrega\":1513036800000,\n    \"Días para la entrega\":1,\n    \"Fecha de entrega\":1514160000000,\n    \"Días de atraso\":13,\n    \"Transportista\":\"Speedy Express\",\n    \"Ciudad\":\"Bräcke\",\n    \"Estado\":\"Jämtland\",\n    \"País\":\"Sweden\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10724,\n    \"Fecha estimada de entrega\":1509840000000,\n    \"Días para la entrega\":6,\n    \"Fecha de entrega\":1512950400000,\n    \"Días de atraso\":36,\n    \"Transportista\":\"United Package\",\n    \"Ciudad\":\"Montréal\",\n    \"Estado\":\"Québec\",\n    \"País\":\"Canada\",\n    \"Continente\":\"North America\"\n  },\n  {\n    \"Pedido\":10462,\n    \"Fecha estimada de entrega\":1489795200000,\n    \"Días para la entrega\":15,\n    \"Fecha de entrega\":1490918400000,\n    \"Días de atraso\":13,\n    \"Transportista\":\"Speedy Express\",\n    \"Ciudad\":\"London\",\n    \"Estado\":\"London\",\n    \"País\":\"United Kingdom\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10355,\n    \"Fecha estimada de entrega\":1479600000000,\n    \"Días para la entrega\":5,\n    \"Fecha de entrega\":1481587200000,\n    \"Días de atraso\":23,\n    \"Transportista\":\"Speedy Express\",\n    \"Ciudad\":\"London\",\n    \"Estado\":\"London\",\n    \"País\":\"United Kingdom\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10277,\n    \"Fecha estimada de entrega\":1471046400000,\n    \"Días para la entrega\":4,\n    \"Fecha de entrega\":1473120000000,\n    \"Días de atraso\":24,\n    \"Transportista\":\"Federal Shipping\",\n    \"Ciudad\":\"Leipzig\",\n    \"Estado\":\"Sachsen\",\n    \"País\":\"Germany\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10871,\n    \"Fecha estimada de entrega\":1518220800000,\n    \"Días para la entrega\":5,\n    \"Fecha de entrega\":1520208000000,\n    \"Días de atraso\":23,\n    \"Transportista\":\"United Package\",\n    \"Ciudad\":\"Marseille\",\n    \"Estado\":\"Bouches-du-Rhône\",\n    \"País\":\"France\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10621,\n    \"Fecha estimada de entrega\":1502409600000,\n    \"Días para la entrega\":6,\n    \"Fecha de entrega\":1504310400000,\n    \"Días de atraso\":22,\n    \"Transportista\":\"United Package\",\n    \"Ciudad\":\"Cowes\",\n    \"Estado\":\"Isle of Wight\",\n    \"País\":\"United Kingdom\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10403,\n    \"Fecha estimada de entrega\":1483920000000,\n    \"Días para la entrega\":6,\n    \"Fecha de entrega\":1485820800000,\n    \"Días de atraso\":22,\n    \"Transportista\":\"Federal Shipping\",\n    \"Ciudad\":\"Graz\",\n    \"Estado\":\"Steiermark\",\n    \"País\":\"Austria\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10837,\n    \"Fecha estimada de entrega\":1516665600000,\n    \"Días para la entrega\":7,\n    \"Fecha de entrega\":1518480000000,\n    \"Días de atraso\":21,\n    \"Transportista\":\"Federal Shipping\",\n    \"Ciudad\":\"Luleå\",\n    \"Estado\":\"Norrbotten\",\n    \"País\":\"Sweden\",\n    \"Continente\":\"Europe\"\n  },\n  {\n    \"Pedido\":10522,\n    \"Fecha estimada de entrega\":1494028800000,\n    \"Días para la entrega\":6,\n    \"Fecha de entrega\":1495929600000,\n    \"Días de atraso\":22,\n    \"Transportista\":\"Speedy Express\",\n    \"Ciudad\":\"Frankfurt a.M.\",\n    \"Estado\":\"Hessen\",\n    \"País\":\"Germany\",\n    \"Continente\":\"Europe\"\n  }\n]"
-  },
-  {
-    "question": "Cuantos son los días promedio de atraso y el costo total del flete por transportista",
-    "query": "WITH logistic AS (\nSELECT DISTINCT s.orderno, s.freight, sh.companyname, d.date - d2.date AS \"delay_days\"\nFROM sales s\nJOIN shipper sh ON sh.shipperkey = s.shipperkey\nJOIN date d ON d.datekey = s.duedatekey\nJOIN date d2 ON d2.datekey = s.shippeddatekey\n)\nSELECT companyname AS \"Transportista\", SUM(freight) AS \"Costo total del flete\", AVG(delay_days) AS \"Días promedio de atraso\"\nFROM logistic\nGROUP BY  companyname",
-    "evidence": [
-      "d.date - d2.date",
-      "SUM(freight)",
-      "AVG(delay_days)",
-      "GROUP BY  companyname"
-    ],
-    "result": "[\n  {\n    \"Transportista\":\"United Package\",\n    \"Costo total del flete\":9216.814,\n    \"Días promedio de atraso\":\"18.8700000000000000\"\n  },\n  {\n    \"Transportista\":\"Speedy Express\",\n    \"Costo total del flete\":5614.7705,\n    \"Días promedio de atraso\":\"19.5358649789029536\"\n  },\n  {\n    \"Transportista\":\"Federal Shipping\",\n    \"Costo total del flete\":7345.548,\n    \"Días promedio de atraso\":\"20.0125000000000000\"\n  }\n]"
-  },
-  {
-    "question": "Quiero el ABC de los productos con sus categorías, donde A son el 80% de las ventas, B el 15% de las ventas y C el 5% restante",
-    "query": "WITH product_sales AS (\nSELECT c.categoryname, p.productname, SUM(s.salesamount) as sales\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nGROUP BY c.categoryname, p.productname\n),\ncum_percent_sales AS (\nSELECT categoryname, productname, sales, SUM(sales) OVER(ORDER BY sales DESC) / SUM(sales) OVER() AS cum_percent\nFROM product_sales\nORDER BY sales DESC\n)\nSELECT categoryname AS \"Categoría de producto\", productname AS \"Producto\", sales AS \"Ventas totales\", CASE WHEN cum_percent <= 0.8 THEN 'A'\n                                              WHEN cum_percent <= 0.95 THEN 'B'\n                                              ELSE 'C' END AS \"Categoría ABC\"\nFROM cum_percent_sales",
-    "evidence": [
-      "SUM(sales) OVER(ORDER BY sales DESC) / SUM(sales) OVER()",
-      "WHEN cum_percent <= 0.8",
-      "WHEN cum_percent <= 0.95",
-      "ELSE 'C'"
-    ],
-    "result": "[\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Producto\":\"Côte de Blaye\",\n    \"Ventas totales\":141396.73,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Dairy Products\",\n    \"Producto\":\"Raclette Courdavault\",\n    \"Ventas totales\":65658.45,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Meat\\/Poultry\",\n    \"Producto\":\"Thüringer Rostbratwurst\",\n    \"Ventas totales\":63657.023,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Confections\",\n    \"Producto\":\"Tarte au sucre\",\n    \"Ventas totales\":46643.965,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Dairy Products\",\n    \"Producto\":\"Camembert Pierrot\",\n    \"Ventas totales\":44200.68,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Grains\\/Cereals\",\n    \"Producto\":\"Gnocchi di nonna Alice\",\n    \"Ventas totales\":41453.055,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Produce\",\n    \"Producto\":\"Manjimup Dried Apples\",\n    \"Ventas totales\":38760.49,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Meat\\/Poultry\",\n    \"Producto\":\"Alice Mutton\",\n    \"Ventas totales\":32230.38,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Seafood\",\n    \"Producto\":\"Carnarvon Tigers\",\n    \"Ventas totales\":26903.125,\n    \"Categoría ABC\":\"A\"\n  },\n  {\n    \"Categoría de producto\":\"Dairy Products\",\n    \"Producto\":\"Mozzarella di Giovanni\",\n    \"Ventas totales\":24900.125,\n    \"Categoría ABC\":\"A\"\n  }\n]"
-  },
-  {
-    "question": "Quiero la variación mensual de las ventas por categoría de producto",
-    "query": "WITH categori_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount) as sales\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nGROUP BY c.categoryname, d.year, d.monthnumber\nORDER BY c.categoryname, d.year, d.monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", \n((sales / LAG(sales) OVER(PARTITION BY categoryname ORDER BY year, monthnumber)) - 1) * 100 AS \"Variación porcentual\"\nFROM categori_sales",
-    "evidence": [
-      "LAG(sales) OVER",
-      "PARTITION BY categoryname ORDER BY year, monthnumber",
-      "((sales / LAG(sales)",
-      "- 1) * 100"
-    ],
-    "result": "[\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":7,\n    \"Variación porcentual\":null\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":8,\n    \"Variación porcentual\":6.6733717918\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":9,\n    \"Variación porcentual\":-28.7279605865\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":10,\n    \"Variación porcentual\":177.0639657974\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":11,\n    \"Variación porcentual\":156.0034036636\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2016,\n    \"Mes\":12,\n    \"Variación porcentual\":-47.1403777599\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":1,\n    \"Variación porcentual\":140.5009031296\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":2,\n    \"Variación porcentual\":-90.3297133744\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":3,\n    \"Variación porcentual\":372.7600097656\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Año\":2017,\n    \"Mes\":4,\n    \"Variación porcentual\":-34.9555015564\n  }\n]"
-  },
-  {
-    "question": "Dame el top 10 de los clientes que mas compran seguido junto el total vendido a cada uno",
-    "query": "SELECT c.companyname AS \"Cliente\", COUNT( DISTINCT s.orderno) AS \"Cant. de compras\", SUM(s.salesamount) AS \"Venta total\"\nFROM sales s\nJOIN customer c ON c.customerkey = s.customerkey\nGROUP BY c.companyname\nORDER BY \"Cant. de compras\" DESC\nLIMIT 10",
-    "evidence": [
-      "COUNT( DISTINCT s.orderno)",
-      "SUM(s.salesamount)",
-      "ORDER BY \"Cant. de compras\" DESC",
-      "LIMIT 10"
-    ],
-    "result": "[\n  {\n    \"Cliente\":\"Save-a-lot Markets\",\n    \"Cant. de compras\":31,\n    \"Venta total\":102253.85\n  },\n  {\n    \"Cliente\":\"Ernst Handel\",\n    \"Cant. de compras\":28,\n    \"Venta total\":93349.45\n  },\n  {\n    \"Cliente\":\"QUICK-Stop\",\n    \"Cant. de compras\":26,\n    \"Venta total\":103597.44\n  },\n  {\n    \"Cliente\":\"Folk och fä HB\",\n    \"Cant. de compras\":19,\n    \"Venta total\":29373.062\n  },\n  {\n    \"Cliente\":\"HILARION-Abastos\",\n    \"Cant. de compras\":18,\n    \"Venta total\":22154.264\n  },\n  {\n    \"Cliente\":\"Berglunds snabbköp\",\n    \"Cant. de compras\":18,\n    \"Venta total\":21919.578\n  },\n  {\n    \"Cliente\":\"Rattlesnake Canyon Grocery\",\n    \"Cant. de compras\":17,\n    \"Venta total\":49290.082\n  },\n  {\n    \"Cliente\":\"Bon app'\",\n    \"Cant. de compras\":16,\n    \"Venta total\":19373.102\n  },\n  {\n    \"Cliente\":\"Frankenversand\",\n    \"Cant. de compras\":15,\n    \"Venta total\":26656.56\n  },\n  {\n    \"Cliente\":\"Wartian Herkku\",\n    \"Cant. de compras\":15,\n    \"Venta total\":14728.702\n  }\n]"
-  },
-  {
-    "question": "Quiero saber la variacion de la ventas diarias por categoria junto con los montos de los descuentos aplicados. Ordena por categoria y fecha",
-    "query": "WITH date_sales AS (\nSELECT c.categoryname, d.date, SUM(s.salesamount) as sales, SUM(s.salesamount * s.discount) AS discounts\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY c.categoryname, d.date\n)\nSELECT categoryname AS \"Categoría de producto\", date AS \"Fecha\",\nsales AS \"Ventas\", discounts AS \"Descuentos\", \n((sales / LAG(sales) OVER(PARTITION BY categoryname ORDER BY date)) - 1) * 100 AS \"Variacion en ventas\"\nFROM date_sales\nORDER BY categoryname, date",
-    "evidence": [
-      "LAG(sales)",
-      "OVER(PARTITION BY categoryname ORDER BY date)",
-      "SUM(s.salesamount * s.discount)",
-      "GROUP BY c.categoryname, d.date"
-    ],
-    "result": "[\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1468108800000,\n    \"Ventas\":604.8,\n    \"Descuentos\":0.0,\n    \"Variacion en ventas\":null\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1468195200000,\n    \"Ventas\":45.9,\n    \"Descuentos\":6.8850007,\n    \"Variacion en ventas\":-92.4107141793\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1468281600000,\n    \"Ventas\":304.0,\n    \"Descuentos\":0.0,\n    \"Variacion en ventas\":562.3093605042\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1468627200000,\n    \"Ventas\":86.4,\n    \"Descuentos\":0.0,\n    \"Variacion en ventas\":-71.5789467096\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1468713600000,\n    \"Ventas\":608.0,\n    \"Descuentos\":121.6,\n    \"Variacion en ventas\":603.7036895752\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1468886400000,\n    \"Ventas\":477.0,\n    \"Descuentos\":47.25,\n    \"Variacion en ventas\":-21.5460538864\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1469232000000,\n    \"Ventas\":100.8,\n    \"Descuentos\":0.0,\n    \"Variacion en ventas\":-78.8679242134\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1469318400000,\n    \"Ventas\":532.0,\n    \"Descuentos\":0.0,\n    \"Variacion en ventas\":427.7777671814\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1469404800000,\n    \"Ventas\":240.0,\n    \"Descuentos\":0.0,\n    \"Variacion en ventas\":-54.8872172832\n  },\n  {\n    \"Categoría de producto\":\"Beverages\",\n    \"Fecha\":1469750400000,\n    \"Ventas\":183.6,\n    \"Descuentos\":27.540003,\n    \"Variacion en ventas\":-23.49999547\n  }\n]"
-  },
-  {
-    "question": "Cuales son las 10 ciudades a las que menos se vende y cuanto es el costo promedio del flete producto de las ventas junto con el porcentaje sobre la venta",
-    "query": "WITH city_sales AS (\nSELECT ci.cityname, s.orderno, s.freight :: numeric, SUM(s.salesamount) AS sales \nFROM sales s\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city ci ON c.citykey = ci.citykey\nGROUP BY ci.cityname, s.orderno, freight\n)\nSELECT cityname AS \"Ciudad\", SUM(sales) AS \"Ventas totales\", AVG(freight) AS \"Costo del flete promedio\",\n(SUM(freight) / SUM(sales) :: numeric) * 100 AS \"Porcentaje del flete sobre las ventas totales\"\nFROM city_sales\nGROUP BY cityname\nORDER BY \"Ventas totales\"\nLIMIT 10",
-    "evidence": [
-      "AVG(freight)",
-      "(SUM(freight) / SUM(sales) :: numeric) * 100",
-      "ORDER BY \"Ventas totales\"",
-      "LIMIT 10"
-    ],
-    "result": "[\n  {\n    \"Ciudad\":\"Walla Walla\",\n    \"Ventas totales\":357.0,\n    \"Costo del flete promedio\":\"9.7000000000000000\",\n    \"Porcentaje del flete sobre las ventas totales\":\"5.43417366946778711500\"\n  },\n  {\n    \"Ciudad\":\"Vancouver\",\n    \"Ventas totales\":522.5,\n    \"Costo del flete promedio\":\"1.15443333333333333333\",\n    \"Porcentaje del flete sobre las ventas totales\":\"0.66283253588516746400\"\n  },\n  {\n    \"Ciudad\":\"Barcelona\",\n    \"Ventas totales\":836.7,\n    \"Costo del flete promedio\":\"4.5770000000000000\",\n    \"Porcentaje del flete sobre las ventas totales\":\"2.73514999402414246400\"\n  },\n  {\n    \"Ciudad\":\"Reims\",\n    \"Ventas totales\":1381.9999,\n    \"Costo del flete promedio\":\"4.8766600000000000\",\n    \"Porcentaje del flete sobre las ventas totales\":\"1.76434876989869754000\"\n  },\n  {\n    \"Ciudad\":\"Caracas\",\n    \"Ventas totales\":1488.7,\n    \"Costo del flete promedio\":\"16.9500000000000000\",\n    \"Porcentaje del flete sobre las ventas totales\":\"2.27715456438503392200\"\n  },\n  {\n    \"Ciudad\":\"Torino\",\n    \"Ventas totales\":1545.7,\n    \"Costo del flete promedio\":\"6.6258333333333333\",\n    \"Porcentaje del flete sobre las ventas totales\":\"2.57197386297470401800\"\n  },\n  {\n    \"Ciudad\":\"Kirkland\",\n    \"Ventas totales\":1571.2,\n    \"Costo del flete promedio\":\"7.1233333333333333\",\n    \"Porcentaje del flete sobre las ventas totales\":\"1.36010692464358452100\"\n  },\n  {\n    \"Ciudad\":\"Butte\",\n    \"Ventas totales\":1752.74,\n    \"Costo del flete promedio\":\"15.5650000000000000\",\n    \"Porcentaje del flete sobre las ventas totales\":\"2.66411447219781599100\"\n  },\n  {\n    \"Ciudad\":\"Versailles\",\n    \"Ventas totales\":1992.05,\n    \"Costo del flete promedio\":\"7.2916250000000000\",\n    \"Porcentaje del flete sobre las ventas totales\":\"1.46414497628071584500\"\n  },\n  {\n    \"Ciudad\":\"Mannheim\",\n    \"Ventas totales\":2381.8,\n    \"Costo del flete promedio\":\"15.3686000000000000\",\n    \"Porcentaje del flete sobre las ventas totales\":\"3.87150894281635737700\"\n  }\n]"
-  }
+    {
+        "question": "Cuanto fueron las ventas por anio, producto, categoria y cliente. Ordena por anio, cateogira, porducto y cliente",
+        "query": "SELECT d.year AS \"Año\", cat.categoryname AS \"Categoria\", p.productname AS \"Producto\", c.companyname AS \"Cliente\", SUM(salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN product p ON s.productkey = p.productkey\nJOIN category cat ON p.categorykey = cat.categorykey\nGROUP BY d.year, cat.categoryname, p.productname, c.companyname\nORDER BY d.year, cat.categoryname, p.productname, c.companyname",
+        "evidence": [
+            "SUM(salesamount)",
+            "JOIN category cat",
+            "GROUP BY d.year, cat.categoryname, p.productname, c.companyname",
+            "ORDER BY d.year, cat.categoryname, p.productname, c.companyname"
+        ]
+    },
+    {
+        "question": "Cuanto fuero las ventas anuales por pais del cliente y del proveedor. Orderna por año, pais y por porveedor",
+        "query": "SELECT d.year AS \"Año\", ct.countryname AS \"País del cliente\", ct2.countryname AS \"País del proveedor\", SUM(s.salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nJOIN supplier sp ON sp.supplierkey = s.supplierkey\nJOIN city cy2 ON cy2.citykey = sp.citykey\nJOIN state st2 ON st2.statekey = cy2.statekey\nJOIN country ct2 ON ct2.countrykey = st2.countrykey\nGROUP BY d.year, ct.countryname, ct2.countryname\nORDER BY d.year, ct.countryname, ct2.countryname",
+        "evidence": [
+            "JOIN country ct",
+            "JOIN country ct2",
+            "JOIN supplier sp",
+            "GROUP BY d.year, ct.countryname, ct2.countryname"
+        ]
+    },
+    {
+        "question": "Cuanto fueron las ventas mensuales por pais de consumidor comparada con la del mes anterior",
+        "query": "WITH monthly_sales AS (\nSELECT d.year, d.monthnumber, ct.countryname, SUM(salesamount) as salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN customer c on c.customerkey = s.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nGROUP BY d.year, d.monthnumber, ct.countryname\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", countryname AS \"País\", salesamount AS \"Ventas\",\nLAG(salesamount) OVER(PARTITION BY countryname ORDER BY year,monthnumber) AS \"Ventas del mes anterior\"\nFROM monthly_sales",
+        "evidence": [
+            "LAG(salesamount)",
+            "OVER(PARTITION BY countryname ORDER BY year,monthnumber)",
+            "GROUP BY d.year, d.monthnumber, ct.countryname",
+            "WITH monthly_sales AS"
+        ]
+    },
+    {
+        "question": "Cuanto fue el crecimiento mensual de ventas por producto?. Es decir, la ventas por mes de cada producto respecto a las del mes anterior",
+        "query": "WITH monthly_sales AS (\nSELECT d.year, d.monthnumber, p.productname, SUM(salesamount) as salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nGROUP BY d.year, d.monthnumber, p.productname\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", productname AS \"Producto\", salesamount AS \"Ventas\",\nLAG(salesamount) OVER(PARTITION BY productname ORDER BY year,monthnumber) AS \"Ventas del mes anterior\"\nFROM monthly_sales",
+        "evidence": [
+            "LAG(salesamount)",
+            "OVER(PARTITION BY productname ORDER BY year,monthnumber)",
+            "GROUP BY d.year, d.monthnumber, p.productname",
+            "JOIN product p"
+        ]
+    },
+    {
+        "question": "Dame los 3 empleados (con apellido y nombre juntos separados por un espacio) que mas ventas consiguieron en orden descendente",
+        "query": "SELECT lastname || ' ' || firstname AS \"Empleado\", SUM(salesamount) as \"Ventas\"\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nGROUP BY lastname,firstname\nORDER BY SUM(salesamount) DESC\nLIMIT 3",
+        "evidence": [
+            "SUM(salesamount)",
+            "JOIN employee e",
+            "ORDER BY SUM(salesamount) DESC",
+            "LIMIT 3"
+        ]
+    },
+    {
+        "question": "Cuales fueron los empleados (con apellido y nombre juntos separados por un espacio) que mas ventas consiguieron por producto y en cada año",
+        "query": "WITH ranking AS (\nSELECT d.year, p.productname, e.lastname, e.firstname, SUM(s.salesamount) AS salesamount,\nRANK() OVER (PARTITION BY d.year, p.productname ORDER BY SUM(s.salesamount) DESC ) as rank\nFROM sales s\nJOIN product p ON s.productkey = p.productkey\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN employee e ON e.employeekey = s.employeekey \nGROUP BY d.year, p.productname, e.lastname, e.firstname\n)\nSELECT year AS \"Año\", productname AS \"Producto\", lastname || '' || firstname AS \"Empleado\", salesamount AS \"Ventas\"\nFROM ranking\nWHERE rank = 1\nORDER BY year, productname",
+        "evidence": [
+            "RANK() OVER",
+            "PARTITION BY d.year, p.productname",
+            "ORDER BY SUM(s.salesamount) DESC",
+            "WHERE rank = 1"
+        ]
+    },
+    {
+        "question": "Cuales son los países que componen el 50% de nuestras ventas",
+        "query": "WITH countries_sales AS (\nSELECT ct.countryname, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN customer c on c.customerkey = s.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nGROUP BY  ct.countryname\n),\nshare AS (\nSELECT countryname, salesamount, SUM(salesamount) OVER(ORDER BY salesamount DESC)/ SUM(salesamount) OVER() AS share,\nsalesamount / SUM(salesamount) OVER() AS sales_percent\nFROM countries_sales\n)\nSELECT countryname AS \"País\", salesamount AS \"Ventas\", sales_percent * 100 AS \"Porcentaje de ventas\"\nFROM share\nWHERE share <= 0.5\nORDER BY sales_percent DESC",
+        "evidence": [
+            "SUM(salesamount) OVER(ORDER BY salesamount DESC)/ SUM(salesamount) OVER()",
+            "salesamount / SUM(salesamount) OVER()",
+            "share <= 0.5",
+            "GROUP BY  ct.countryname"
+        ]
+    },
+    {
+        "question": "Quiero el total de las ventas y el promedio mensual de ventas por empleado (apellido y nombre juntos separados por un espacio) y por año. Ordenado por apellido, nombre y el anio",
+        "query": "WITH monthly_sales AS (\nSELECT e.lastname, e.firstname, d.year, d.monthnumber, SUM(s.salesamount :: numeric) AS salesamount\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY lastname, firstname, year, monthnumber\n)\nSELECT lastname || ' ' || firstname AS \"Empleado\", year AS \"Año\",\nSUM(salesamount) AS \"Ventas Totales\", AVG(salesamount) AS \"Ventas promedio mensuales\"\nFROM monthly_sales\nGROUP BY lastname, firstname, year\nORDER BY lastname, firstname, year",
+        "evidence": [
+            "AVG(salesamount)",
+            "SUM(s.salesamount :: numeric)",
+            "GROUP BY lastname, firstname, year, monthnumber",
+            "GROUP BY lastname, firstname, year"
+        ]
+    },
+    {
+        "question": "Cuantas fueron las ventas mensuales y los descuentos aplicados por cada producto. Ordena por producto, año y mes",
+        "query": "SELECT p.productname AS \"Producto\", d.year AS \"Año\", d.monthnumber AS \"Mes\",\nSUM(s.salesamount) AS \"Ventas\", SUM( s.salesamount * s.discount) AS \"Descuentos\"\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nGROUP BY p.productname, d.year, d.monthnumber\nORDER BY p.productname, d.year, d.monthnumber",
+        "evidence": [
+            "SUM(s.salesamount)",
+            "SUM( s.salesamount * s.discount)",
+            "GROUP BY p.productname, d.year, d.monthnumber",
+            "JOIN product p"
+        ]
+    },
+    {
+        "question": "Dame las ventas acumuladas mensuales por cada categoria de producto. Ordenalas por cateogria, anio y producto",
+        "query": "WITH monthly_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY categoryname, year, monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", SUM(salesamount) OVER(PARTITION BY categoryname ORDER BY year, monthnumber) AS \"Ventas mensuales acumuladas\"\nFROM monthly_sales\nORDER BY categoryname, year, monthnumber",
+        "evidence": [
+            "SUM(salesamount) OVER",
+            "PARTITION BY categoryname",
+            "ORDER BY year, monthnumber",
+            "GROUP BY categoryname, year, monthnumber"
+        ]
+    },
+    {
+        "question": "Dame el promedio movil de las ultimas 3 ventas mensuales por categoria de producto",
+        "query": "WITH monthly_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount :: numeric) AS salesamount\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY categoryname, year, monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", \nAVG(salesamount) OVER(\nPARTITION BY categoryname \nORDER BY year, monthnumber\nROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS \"Promedio movil últimos 3 meses\"\nFROM monthly_sales\nORDER BY categoryname, year, monthnumber",
+        "evidence": [
+            "AVG(salesamount) OVER",
+            "PARTITION BY categoryname",
+            "ORDER BY year, monthnumber",
+            "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW"
+        ]
+    },
+    {
+        "question": "Quiero que me compares las ventas totales de un empleado contra el total de las realizadas por el y todos sus subordinados en el año 2017",
+        "query": "WITH RECURSIVE hierarchy AS (\nSELECT e.lastname, e.firstname, e.employeekey AS bosskey, e.employeekey AS subordinatekey\nFROM employee e\nUNION ALL\nSELECT h.lastname, h.firstname, h.bosskey, e.employeekey AS subordinatekey\nFROM employee e\nJOIN hierarchy h ON e.supervisorkey = h.subordinatekey\n),\nemployee_sales AS (\nSELECT s.employeekey, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nWHERE d.year = 2017\nGROUP BY s.employeekey\n)\nSELECT h.lastname || ' ' || h.firstname AS \"Empleado\", es2.salesamount AS \"Ventas propias\", SUM(es.salesamount) \"Ventas del equipo\"\nFROM employee_sales es\nJOIN hierarchy h ON h.subordinatekey = es.employeekey\nJOIN employee_sales es2 ON es2.employeekey = h.bosskey\nGROUP BY h.lastname, h.firstname, es2.salesamount",
+        "evidence": [
+            "WITH RECURSIVE hierarchy",
+            "UNION ALL",
+            "JOIN hierarchy h ON h.subordinatekey = es.employeekey",
+            "WHERE d.year = 2017"
+        ]
+    },
+    {
+        "question": "Quiero que para cada orden me digas el monto total de venta, numeros de productos y las cantidades totales",
+        "query": "SELECT orderno AS \"Orden\", SUM(salesamount) AS  \"Monto de venta\",\nCOUNT(productkey) AS \"Cantidad de productos\", SUM(quantity) AS \"Cantidades vendidas\"\nFROM sales\nGROUP BY orderno",
+        "evidence": [
+            "SUM(salesamount)",
+            "COUNT(productkey)",
+            "SUM(quantity)",
+            "GROUP BY orderno"
+        ]
+    },
+    {
+        "question": "Para cada mes quiero que me digas las ventas totales, la cantidad de ordenes emitidas y el ticket promedio. Ordena por anio y mes",
+        "query": "WITH order_sales AS(\nSELECT d.year, d.monthnumber, s.orderno, SUM(s.salesamount) AS salesamount\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nGROUP BY d.year, d.monthnumber, s.orderno\n)\nSELECT year AS \"Año\", monthnumber AS \"Mes\", SUM(salesamount) AS \"Ventas totales\",\nCOUNT(orderno) AS \"Cantidad de órdenes\", AVG(salesamount :: numeric) AS \"Ticker promedio\"\nFROM order_sales\nGROUP BY year, monthnumber\nORDER BY year, monthnumber",
+        "evidence": [
+            "COUNT(orderno)",
+            "AVG(salesamount :: numeric)",
+            "GROUP BY d.year, d.monthnumber, s.orderno",
+            "GROUP BY year, monthnumber"
+        ]
+    },
+    {
+        "question": "Dame por cada empleado (apellido y nombre juntos separados por un espacio) el monto total vendido, el numero de clientes gestionados y el numero de ciudades y estados a los que fue asignado",
+        "query": "SELECT e.lastname || ' ' || e.firstname AS \"Empleado\", SUM(s.salesamount) AS \"Ventas totales\",\nCOUNT (DISTINCT s.customerkey) AS \"Clientes gestionados\", COUNT(DISTINCT c.citykey) AS \"Ciudades asignadas\",\nCOUNT( DISTINCT st.statekey) AS \"Estados asignados\"\nFROM sales s\nJOIN employee e ON e.employeekey = s.employeekey\nJOIN territories t ON t.employeekey = s.employeekey\nJOIN city c ON c.citykey = t.citykey\nJOIN state st ON st.statekey = c.statekey\nGROUP BY e.lastname, e.firstname",
+        "evidence": [
+            "COUNT (DISTINCT s.customerkey)",
+            "COUNT(DISTINCT c.citykey)",
+            "COUNT( DISTINCT st.statekey)",
+            "JOIN territories t"
+        ]
+    },
+    {
+        "question": "Quiero saber el tiempo de entrega de los pedidos y sus días de atraso por transportista y destino.",
+        "query": "SELECT DISTINCT orderno AS \"Pedido\", d2.date AS \"Fecha estimada de entrega\",\nd2.date - d1.date AS \"Días para la entrega\", d3.date AS \"Fecha de entrega\",\nd3.date - d2.date AS \"Días de atraso\", sh.companyname AS \"Transportista\",\nci.cityname AS \"Ciudad\", st.statename AS \"Estado\", co.countryname AS \"País\", con.continentname AS \"Continente\"\nFROM sales s\nJOIN date d1 ON d1.datekey = s.orderdatekey\nJOIN date d2 ON d2.datekey = s.shippeddatekey\nJOIN date d3 ON d3.datekey = s.duedatekey\nJOIN shipper sh ON sh.shipperkey = s.shipperkey\nJOIN customer c ON c.customerkey = s.customerkey\nJOIN city ci ON ci.citykey = c.citykey\nJOIN state st ON st.statekey = ci.statekey\nJOIN country co ON co.countrykey = st.countrykey\nJOIN continent con ON con.continentkey = co.continentkey",
+        "evidence": [
+            "d2.date - d1.date",
+            "d3.date - d2.date",
+            "JOIN shipper sh",
+            "JOIN continent con"
+        ]
+    },
+    {
+        "question": "Cuantos son los días promedio de atraso y el costo total del flete por transportista",
+        "query": "WITH logistic AS (\nSELECT DISTINCT s.orderno, s.freight, sh.companyname, d.date - d2.date AS \"delay_days\"\nFROM sales s\nJOIN shipper sh ON sh.shipperkey = s.shipperkey\nJOIN date d ON d.datekey = s.duedatekey\nJOIN date d2 ON d2.datekey = s.shippeddatekey\n)\nSELECT companyname AS \"Transportista\", SUM(freight) AS \"Costo total del flete\", AVG(delay_days) AS \"Días promedio de atraso\"\nFROM logistic\nGROUP BY  companyname",
+        "evidence": [
+            "d.date - d2.date",
+            "SUM(freight)",
+            "AVG(delay_days)",
+            "GROUP BY  companyname"
+        ]
+    },
+    {
+        "question": "Quiero el ABC de los productos con sus categorías, donde A son el 80% de las ventas, B el 15% de las ventas y C el 5% restante",
+        "query": "WITH product_sales AS (\nSELECT c.categoryname, p.productname, SUM(s.salesamount) as sales\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nGROUP BY c.categoryname, p.productname\n),\ncum_percent_sales AS (\nSELECT categoryname, productname, sales, SUM(sales) OVER(ORDER BY sales DESC) / SUM(sales) OVER() AS cum_percent\nFROM product_sales\nORDER BY sales DESC\n)\nSELECT categoryname AS \"Categoría de producto\", productname AS \"Producto\", sales AS \"Ventas totales\", CASE WHEN cum_percent <= 0.8 THEN 'A'\n                                              WHEN cum_percent <= 0.95 THEN 'B'\n                                              ELSE 'C' END AS \"Categoría ABC\"\nFROM cum_percent_sales",
+        "evidence": [
+            "SUM(sales) OVER(ORDER BY sales DESC) / SUM(sales) OVER()",
+            "WHEN cum_percent <= 0.8",
+            "WHEN cum_percent <= 0.95",
+            "ELSE 'C'"
+        ]
+    },
+    {
+        "question": "Quiero la variación mensual de las ventas por categoría de producto",
+        "query": "WITH categori_sales AS (\nSELECT c.categoryname, d.year, d.monthnumber, SUM(s.salesamount) as sales\nFROM sales s\nJOIN date d ON d.datekey = s.orderdatekey\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nGROUP BY c.categoryname, d.year, d.monthnumber\nORDER BY c.categoryname, d.year, d.monthnumber\n)\nSELECT categoryname AS \"Categoría de producto\", year AS \"Año\", monthnumber AS \"Mes\", \n((sales / LAG(sales) OVER(PARTITION BY categoryname ORDER BY year, monthnumber)) - 1) * 100 AS \"Variación porcentual\"\nFROM categori_sales",
+        "evidence": [
+            "LAG(sales) OVER",
+            "PARTITION BY categoryname ORDER BY year, monthnumber",
+            "((sales / LAG(sales)",
+            "- 1) * 100"
+        ]
+    },
+    {
+        "question": "Dame el top 10 de los clientes que mas compran seguido junto el total vendido a cada uno",
+        "query": "SELECT c.companyname AS \"Cliente\", COUNT( DISTINCT s.orderno) AS \"Cant. de compras\", SUM(s.salesamount) AS \"Venta total\"\nFROM sales s\nJOIN customer c ON c.customerkey = s.customerkey\nGROUP BY c.companyname\nORDER BY \"Cant. de compras\" DESC\nLIMIT 10",
+        "evidence": [
+            "COUNT( DISTINCT s.orderno)",
+            "SUM(s.salesamount)",
+            "ORDER BY \"Cant. de compras\" DESC",
+            "LIMIT 10"
+        ]
+    },
+    {
+        "question": "Quiero saber la variacion de la ventas diarias por categoria junto con los montos de los descuentos aplicados. Ordena por categoria y fecha",
+        "query": "WITH date_sales AS (\nSELECT c.categoryname, d.date, SUM(s.salesamount) as sales, SUM(s.salesamount * s.discount) AS discounts\nFROM sales s\nJOIN product p ON p.productkey = s.productkey\nJOIN category c ON c.categorykey = p.categorykey\nJOIN date d ON d.datekey = s.orderdatekey\nGROUP BY c.categoryname, d.date\n)\nSELECT categoryname AS \"Categoría de producto\", date AS \"Fecha\",\nsales AS \"Ventas\", discounts AS \"Descuentos\", \n((sales / LAG(sales) OVER(PARTITION BY categoryname ORDER BY date)) - 1) * 100 AS \"Variacion en ventas\"\nFROM date_sales\nORDER BY categoryname, date",
+        "evidence": [
+            "LAG(sales)",
+            "OVER(PARTITION BY categoryname ORDER BY date)",
+            "SUM(s.salesamount * s.discount)",
+            "GROUP BY c.categoryname, d.date"
+        ]
+    },
+    {
+        "question": "Cuales son las 10 ciudades a las que menos se vende y cuanto es el costo promedio del flete producto de las ventas junto con el porcentaje sobre la venta",
+        "query": "WITH city_sales AS (\nSELECT ci.cityname, s.orderno, s.freight :: numeric, SUM(s.salesamount) AS sales \nFROM sales s\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city ci ON c.citykey = ci.citykey\nGROUP BY ci.cityname, s.orderno, freight\n)\nSELECT cityname AS \"Ciudad\", SUM(sales) AS \"Ventas totales\", AVG(freight) AS \"Costo del flete promedio\",\n(SUM(freight) / SUM(sales) :: numeric) * 100 AS \"Porcentaje del flete sobre las ventas totales\"\nFROM city_sales\nGROUP BY cityname\nORDER BY \"Ventas totales\"\nLIMIT 10",
+        "evidence": [
+            "AVG(freight)",
+            "(SUM(freight) / SUM(sales) :: numeric) * 100",
+            "ORDER BY \"Ventas totales\"",
+            "LIMIT 10"
+        ]
+    }
 ]

@@ -1,8 +1,7 @@
-import asyncio
-from dataclasses import asdict, dataclass
-import time
+from dataclasses import asdict, dataclass, field
+import uuid
 from dataclasses import dataclass
-from typing import Optional, Protocol, AsyncIterator
+from typing import Protocol, AsyncIterator
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 
 @dataclass(frozen=True)
@@ -16,6 +15,7 @@ class GenerationResult:
     total_tokens: int
     text: SQLAnswer | InvalidAnswerScheme | AnswerOpenAIScheme
     finish_reason: str = "stop"
+    run_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def to_dict(self) -> dict:
         return asdict(self)

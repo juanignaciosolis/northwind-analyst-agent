@@ -78,8 +78,7 @@ with DatabaseManager() as db:
 
         respuesta = client.generate(prompt=pregunta, system = system_prompt_content)
 
-        df_python = json.loads(test["result"])
-        df_esperado = pd.DataFrame(df_python)
+        df_esperado = db.execute(test["query"])
 
         if respuesta.text is None:
 
@@ -114,7 +113,7 @@ with DatabaseManager() as db:
 
                 try:
                     
-                    df = db.execute(respuesta_curada, limit= 10)
+                    df = db.execute(respuesta_curada)
 
                     break
 
@@ -166,9 +165,9 @@ with DatabaseManager() as db:
             )
         )
 
-        df_esperado = generate_rich_table(df_esperado)
+        df_esperado = generate_rich_table(df_esperado.head(10))
 
-        df_real = generate_rich_table(df) if resultado.respuesta else "[bold red]⚠ No se pudo obtener una respuesta válida[/bold red]"
+        df_real = generate_rich_table(df.head(10)) if resultado.respuesta else "[bold red]⚠ No se pudo obtener una respuesta válida[/bold red]"
 
         if resultado.acierto:
             console.print("[bold green][ACIERTO] EL AGENTE RESPONDIO CORRECTAMENTE[/]\n")
