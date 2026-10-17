@@ -8,6 +8,7 @@ import logging
 import psycopg2
 from psycopg2 import OperationalError, ProgrammingError, DataError, Error
 from psycopg2.extensions import connection as PGConnection
+from psycopg_pool import ConnectionPool
 from dotenv import load_dotenv
 import pandas as pd
 from src.settings import settings
@@ -83,3 +84,21 @@ def clean_sql_query(raw_query: str) -> str:
         clean_query = clean_query.replace("  ", " ")
         
     return clean_query.strip()
+
+
+pool = ConnectionPool(
+    conninfo="",  # O conninfo=None
+    kwargs={
+        "host": settings.db_host,
+        "dbname": settings.db_name,  # Ojo: en psycopg se usa dbname
+        "user": settings.db_user,
+        "password": settings.get_db_password(),
+        "port": settings.db_port,
+    },
+    min_size=settings.db_pool_min_connections,
+    max_size=settings.db_pool_max_connections,
+    timeout=settings.db_pool_timeout_seconds,
+    open=True,
+)
+
+

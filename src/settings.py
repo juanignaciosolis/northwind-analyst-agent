@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     db_name: str = "Northwind"
     db_port: int = 5432
     db_host: str = "localhost"
+    
+    db_pool_min_connections: int = 2
+    db_pool_max_connections: int = 10
+    db_pool_timeout_seconds: int = 30
+
 
     request_timeout_seconds: float = Field(default=20.0, gt=0)
     max_retries: int = Field(default=2, ge=0, le=8)
