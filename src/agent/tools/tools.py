@@ -611,13 +611,13 @@ if __name__ == "__main__":
         idempotent=True,    # SELECT es una operación de lectura idempotente
     )
 )
-call = ToolCall(
+    call = ToolCall(
         tool_name="execute_query_tool",
         arguments={
             "query": "SELECT d.year AS \"Año\", ct.countryname AS \"País del cliente\", ct2.countryname AS \"País del proveedor\", SUM(s.salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nJOIN supplier sp ON sp.supplierkey = s.supplierkey\nJOIN city cy2 ON cy2.citykey = sp.citykey\nJOIN state st2 ON st2.statekey = cy2.statekey\nJOIN country ct2 ON ct2.countrykey = st2.countrykey\nGROUP BY d.year, ct.countryname, ct2.countryname\nORDER BY d.year, ct.countryname, ct2.countryname",
         },
     )
-try:
+    try:
         # Ejecutamos pasando context y policy explícitamente
         result = registry.run(
             call,
@@ -629,6 +629,6 @@ try:
         print(f"Content:\n{result.content}")
         print(f"Metadata:\n{result.metadata}")
 
-finally:
+    finally:
         # Cerramos los workers e hilos de fondo del pool limpiamente
         pool.close()

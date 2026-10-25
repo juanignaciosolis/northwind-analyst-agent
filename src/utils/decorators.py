@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from logging import Logger
 
@@ -13,7 +15,10 @@ from typing import Callable, Any, Annotated, Union
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
 from pydantic import ValidationError, TypeAdapter, Field
 import json
-from src.core.llm.contract import GenerationResult
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.llm.contract import GenerationResult
 from src.utils.errors import RETRYABLE_ERRORS, ProviderTimeoutError
 import random
 
