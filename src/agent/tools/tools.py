@@ -7,10 +7,18 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.utils.database import pool
 from psycopg.rows import dict_row
 import pandas as pd
+import uuid
 import json
+import plotly.express as px
+import plotly.graph_objects as go
+from pathlib import Path
+import inspect
+
 
 
 from pydantic import BaseModel, Field, ValidationError
+
+from src.agent.artifacts.data_memory import InMemoryDataStore
 
 
 ToolKind = Literal[
@@ -30,14 +38,21 @@ VALID_TOOL_KINDS = {
 
 
 class ExecutionContext(BaseModel):
-    """Contexto confiable construido por la aplicación, nunca por contenido recuperado."""
+    """Contexto confiable construido por la aplicación."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     user_id: str
-    role: Role
+    role: Any
     workspace_ids: list[str] = Field(default_factory=list)
     allow_drafts: bool = False
     allow_external_writes: bool = False
     run_id: str = "run-local"
+
+    # Artefacto en memoria excluido de serialización para no romper logs ni trazas
+    store: InMemoryDataStore = Field(
+        default_factory=InMemoryDataStore, exclude=True
+    )
 
 
 class ToolCall(BaseModel):
@@ -443,6 +458,11 @@ class ToolRegistry:
         # 5. Execution. Solo `RetryableToolError` habilita un nuevo intento.
         last_retryable_error: RetryableToolError | None = None
 
+        sig = inspect.signature(tool.fn)
+        fn_kwargs = {}
+        if "context" in sig.parameters:
+            fn_kwargs["context"] = context
+
         for attempt in range(1, tool.retries + 2):
             if attempt > 1:
                 # Backoff exponencial mínimo para recordar C3.
@@ -452,7 +472,7 @@ class ToolRegistry:
             started = perf_counter()
 
             try:
-                future = executor.submit(tool.fn, args)
+                future = executor.submit(tool.fn, args, **fn_kwargs)
                 raw_result = future.result(timeout=tool.timeout_s)
                 elapsed_ms = (perf_counter() - started) * 1000
 
@@ -531,104 +551,824 @@ class ToolRegistry:
         )
 
 
-class StrictToolArgs(BaseModel):
-    """Base para argumentos de Tools: rechaza campos que el contrato no declaró."""
-    model_config = ConfigDict(extra="forbid")
-
-class QuerySchema(StrictToolArgs):
-    query: str = Field(description="Consulta SQL SELECT a ejecutar en PostgreSQL.",
-                       min_length=10)
+class QuerySchema(BaseModel):
+    query: str = Field(
+        description="Consulta SQL de solo lectura a ejecutar contra la base de datos."
+    )
 
 
-def execute_query_tool(args: QuerySchema) -> ToolResult:
-    query= args.get("query", "")
+AggFunction = Literal[
+    "sum", "mean", "median", "min", "max", "count", "nunique"
+]
+
+
+class AggregationSpec(BaseModel):
+    column: str = Field(description="Columna sobre la cual calcular la métrica.")
+    agg: AggFunction = Field(description="Operación de agregación a aplicar.")
+    alias: str | None = Field(
+        default=None, description="Nombre de la columna resultante (opcional)."
+    )
+
+
+class SummarizeSchema(BaseModel):
+    dataset_id: str | None = Field(
+        default=None,
+        description="ID del dataset (ej: 'ds_a1b2c3d4'). Si se omite, opera sobre el último generado.",
+    )
+    group_by: list[str] | None = Field(
+        default=None,
+        description="Columnas categóricas para agrupar (ej: ['country', 'status']).",
+    )
+    aggregations: list[AggregationSpec] = Field(
+        default_factory=list,
+        description="Lista de métricas a calcular sobre columnas del dataset.",
+    )
+    describe_numeric: bool = Field(
+        default=False,
+        description="Si es True, calcula estadísticas descriptivas completas para columnas numéricas.",
+    )
+    limit: int = Field(
+        default=15,
+        ge=1,
+        le=50,
+        description="Límite de filas si se realiza un group_by.",
+    )
+    sort_by: str | None = Field(
+        default=None,
+        description="Columna o alias para ordenar antes de truncar.",
+    )
+    ascending: bool = Field(
+        default=False,
+        description="Dirección de la ordenación (False = descendente).",
+    )
+
+ChartType = Literal[
+    "multilineas",
+    "lineas",
+    "pie chart",
+    "horizontal bar",
+    "horizontal stacker bar",
+    "column bar",
+    "column stacker bar",
+    "area char",
+    "multiareachart",
+]
+
+
+class CreateChartSchema(BaseModel):
+    dataset_id: str | None = Field(
+        default=None,
+        description="ID del dataset guardado en memoria. Si se omite, toma el último generado.",
+    )
+    chart_type: ChartType = Field(
+        description="Tipo de visualización dinámica a generar con Plotly."
+    )
+    dimensions: list[str] = Field(
+        min_length=1,
+        description="Lista de una o más columnas categóricas o temporales (ejes, cortes o agrupadores).",
+    )
+    metrics: list[str] = Field(
+        min_length=1,
+        description="Lista de una o más columnas numéricas a representar en el gráfico.",
+    )
+    title: str | None = Field(
+        default=None, description="Título principal de la visualización."
+    )
+    x_label: str | None = Field(
+        default=None, description="Etiqueta personalizada para el eje horizontal."
+    )
+    y_label: str | None = Field(
+        default=None, description="Etiqueta personalizada para el eje vertical."
+    )
+    filter_column: str | None = Field(
+        default=None,
+        description="Columna categórica para construir un selector interactivo (dropdown) en el gráfico.",
+    )
+    hover_columns: list[str] | None = Field(
+        default=None,
+        description="Columnas adicionales para enriquecer el tooltip dinámico al pasar el cursor.",
+    )
+
+def execute_query_tool(
+    args: QuerySchema, context: ExecutionContext | None = None
+) -> ToolResult:
+    query = args.query if isinstance(args, QuerySchema) else args.get("query", "")
+
     try:
-            # El bloque `with` maneja el commit/rollback y devuelve la conexión al pool
-            with pool.connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(query)
-                    filas = cur.fetchall()
-                    columnas = [desc[0] for desc in cur.description]
-                    df = pd.DataFrame(filas, columns=columnas)
+        with pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                filas = cur.fetchall()
+                columnas = [desc[0] for desc in cur.description]
+                df = pd.DataFrame(filas, columns=columnas)
 
-            # 3. Tomar los 10 primeros registros y convertirlos a diccionario
-            top_10_df = df.head(10)
-            top_10_dict: list[dict[str, Any]] = top_10_df.to_dict(orient="records")
+        # 1. Guardar en el DataStore desacoplado
+        dataset_id = "ds_ephemeral"
+        if context is not None and hasattr(context, "store"):
+            dataset_id = context.store.add(df=df, query=query)
 
-            # 4. Formatear salida para ToolResult
-            return ToolResult(
-                ok=True,
-                content=json.dumps(top_10_dict, default=str),
-                metadata={
-                    "total_rows_fetched": len(df),
-                    "rows_returned": len(top_10_dict),
-                    "columns": list(df.columns),
-                },
-            )
+        # 2. Preview de 10 filas
+        top_10 = df.head(10).to_dict(orient="records")
+
+        # 3. Respuesta para la observación del LLM
+        payload = {
+            "dataset_id": dataset_id,
+            "total_rows": len(df),
+            "columns": columnas
+            }
+
+        return ToolResult(
+            ok=True,
+            content=json.dumps(payload, default=str),
+            metadata={
+                "dataset_id": dataset_id,
+                "total_rows_fetched": len(df),
+                "columns": columnas,
+            },
+        )
 
     except Exception as e:
-            return ToolResult(
-                ok=False,
-                content=f"Error al ejecutar la consulta: {e}",
-                metadata={"error_type": type(e).__name__},
+        return ToolResult(
+            ok=False,
+            content=f"Error al ejecutar la consulta: {e}",
+            metadata={"error_type": type(e).__name__},
+        )
+
+def summarize_dataframe_tool(
+    args: SummarizeSchema, context: ExecutionContext | None = None
+) -> ToolResult:
+
+    args = SummarizeSchema.model_validate(args)
+
+    if context is None or not hasattr(context, "store"):
+        return ToolResult(
+            ok=False,
+            content="Error: No hay contexto de ejecución disponible.",
+            metadata={"error_type": "NoContextAvailable"},
+        )
+
+    # 1. Obtener DataFrame del almacén
+    df = context.store.get(args.dataset_id)
+    if df is None:
+        valid_ids = context.store.list_ids()
+        return ToolResult(
+            ok=False,
+            content=f"No se encontró el dataset '{args.dataset_id}'. IDs en memoria: {valid_ids}",
+            metadata={"error_type": "DatasetNotFound"},
+        )
+
+    if df.empty:
+        return ToolResult(
+            ok=False,
+            content="El dataset solicitado está vacío (0 filas).",
+            metadata={"error_type": "EmptyDataframeError"},
+        )
+
+    try:
+        results: dict[str, Any] = {
+            "dataset_id": args.dataset_id or "latest",
+            "source_rows": len(df),
+        }
+
+        # 2. Estadísticas descriptivas numéricas
+        if args.describe_numeric:
+            numeric_cols = df.select_dtypes(include=["number"])
+            if not numeric_cols.empty:
+                results["descriptive_statistics"] = (
+                    numeric_cols.describe().T.round(2).to_dict(orient="index")
+                )
+            else:
+                results["descriptive_statistics"] = (
+                    "No hay columnas numéricas en el dataset."
+                )
+
+        # 3. Agregaciones y agrupaciones
+        if args.aggregations:
+            cols_needed = [agg.column for agg in args.aggregations]
+            if args.group_by:
+                cols_needed.extend(args.group_by)
+
+            missing = [c for c in cols_needed if c not in df.columns]
+            if missing:
+                return ToolResult(
+                    ok=False,
+                    content=f"Columnas no encontradas en el dataset: {set(missing)}",
+                    metadata={"error_type": "ColumnNotFoundError"},
+                )
+
+            # Caso A: Group By
+            if args.group_by:
+                agg_dict: dict[str, list[str]] = {}
+                rename_map: dict[tuple[str, str], str] = {}
+
+                for agg in args.aggregations:
+                    agg_dict.setdefault(agg.column, []).append(agg.agg)
+                    if agg.alias:
+                        rename_map[(agg.column, agg.agg)] = agg.alias
+
+                grouped = df.groupby(args.group_by).agg(agg_dict)
+
+                if isinstance(grouped.columns, pd.MultiIndex):
+                    grouped.columns = [
+                        rename_map.get((c, f), f"{c}_{f}")
+                        for c, f in grouped.columns
+                    ]
+
+                grouped = grouped.reset_index()
+
+                if args.sort_by and args.sort_by in grouped.columns:
+                    grouped = grouped.sort_values(
+                        by=args.sort_by, ascending=args.ascending
+                    )
+
+                results["grouped_summary"] = {
+                    "group_by": args.group_by,
+                    "total_groups": len(grouped),
+                    "showing_top": min(len(grouped), args.limit),
+                    "data": grouped.head(args.limit).to_dict(orient="records"),
+                }
+
+            # Caso B: Agregación Global
+            else:
+                global_metrics: dict[str, Any] = {}
+                for agg in args.aggregations:
+                    series = df[agg.column]
+
+                    if agg.agg == "sum":
+                        val = series.sum()
+                    elif agg.agg == "mean":
+                        val = series.mean()
+                    elif agg.agg == "median":
+                        val = series.median()
+                    elif agg.agg == "min":
+                        val = series.min()
+                    elif agg.agg == "max":
+                        val = series.max()
+                    elif agg.agg == "count":
+                        val = series.count()
+                    elif agg.agg == "nunique":
+                        val = series.nunique()
+                    else:
+                        continue
+
+                    key = agg.alias if agg.alias else f"{agg.column}_{agg.agg}"
+                    global_metrics[key] = (
+                        round(float(val), 4)
+                        if isinstance(val, (int, float))
+                        else val
+                    )
+
+                results["global_metrics"] = global_metrics
+
+        return ToolResult(
+            ok=True,
+            content=json.dumps(results, default=str),
+            metadata={
+                "dataset_id": args.dataset_id,
+                "source_rows": len(df),
+            },
+        )
+
+    except Exception as e:
+        return ToolResult(
+            ok=False,
+            content=f"Error durante el resumen analítico: {e}",
+            metadata={"error_type": type(e).__name__},
+        )
+
+
+def create_plotly_chart_tool(
+    args: CreateChartSchema, context: ExecutionContext | None = None
+) -> ToolResult:
+
+    args = CreateChartSchema.model_validate(args)
+
+    if context is None or not hasattr(context, "store"):
+        return ToolResult(
+            ok=False,
+            content="Error: No existe un contexto de ejecución activo.",
+            metadata={"error_type": "NoContextAvailable"},
+        )
+
+    # 1. Recuperar el DataFrame
+    df = context.store.get(args.dataset_id)
+    if df is None:
+        valid_ids = context.store.list_ids()
+        return ToolResult(
+            ok=False,
+            content=f"Dataset '{args.dataset_id}' no encontrado. IDs disponibles: {valid_ids}",
+            metadata={"error_type": "DatasetNotFound"},
+        )
+
+    # 2. Validar columnas requeridas
+    check_cols = args.dimensions + args.metrics
+    if args.filter_column:
+        check_cols.append(args.filter_column)
+    if args.hover_columns:
+        check_cols.extend(args.hover_columns)
+
+    missing = [c for c in check_cols if c not in df.columns]
+    if missing:
+        return ToolResult(
+            ok=False,
+            content=f"Las siguientes columnas no existen en el dataset: {set(missing)}",
+            metadata={"error_type": "ColumnNotFoundError"},
+        )
+
+    # 3. Preparación de variables de diseño
+    color_palette = px.colors.qualitative.Bold
+    labels = {}
+    if args.x_label:
+        labels["x"] = args.x_label
+    if args.y_label:
+        labels["y"] = args.y_label
+
+    dim_primary = args.dimensions[0]
+    # Si hay filter_column, esa actúa como partición/color primario para permitir el filtrado
+    dim_color = args.filter_column or (
+        args.dimensions[1] if len(args.dimensions) > 1 else None
+    )
+
+    metric_primary = args.metrics[0]
+    metric_list = args.metrics
+
+    # Configuración de datos para el hover tooltip
+    hover_dict = {}
+    if args.hover_columns:
+        for col in args.hover_columns:
+            hover_dict[col] = True
+
+    try:
+        # 4. Construcción según chart_type
+        if args.chart_type == "lineas":
+            fig = px.line(
+                df,
+                x=dim_primary,
+                y=metric_primary,
+                color=dim_color,
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                labels=labels,
+                title=args.title,
             )
 
+        elif args.chart_type == "multilineas":
+            if len(metric_list) > 1 and not dim_color:
+                fig = px.line(
+                    df,
+                    x=dim_primary,
+                    y=metric_list,
+                    color_discrete_sequence=color_palette,
+                    hover_data=hover_dict or None,
+                    labels=labels,
+                    title=args.title,
+                )
+            else:
+                fig = px.line(
+                    df,
+                    x=dim_primary,
+                    y=metric_primary,
+                    color=dim_color,
+                    color_discrete_sequence=color_palette,
+                    hover_data=hover_dict or None,
+                    labels=labels,
+                    title=args.title,
+                )
+
+        elif args.chart_type == "pie chart":
+            fig = px.pie(
+                df,
+                names=dim_primary,
+                values=metric_primary,
+                color=dim_color,
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                title=args.title,
+            )
+            fig.update_traces(
+                textposition="inside",
+                textinfo="percent+label",
+                hovertemplate="<b>%{label}</b><br>Valor: %{value:,.2f}<br>Participación: %{percent}<extra></extra>",
+            )
+
+        elif args.chart_type == "column bar":
+            fig = px.bar(
+                df,
+                x=dim_primary,
+                y=metric_primary,
+                color=dim_color,
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                labels=labels,
+                title=args.title,
+            )
+
+        elif args.chart_type == "column stacker bar":
+            y_param = (
+                metric_list
+                if (len(metric_list) > 1 and not dim_color)
+                else metric_primary
+            )
+            fig = px.bar(
+                df,
+                x=dim_primary,
+                y=y_param,
+                color=dim_color,
+                barmode="stack",
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                labels=labels,
+                title=args.title,
+            )
+
+        elif args.chart_type == "horizontal bar":
+            fig = px.bar(
+                df,
+                x=metric_primary,
+                y=dim_primary,
+                color=dim_color,
+                orientation="h",
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                labels=labels,
+                title=args.title,
+            )
+
+        elif args.chart_type == "horizontal stacker bar":
+            x_param = (
+                metric_list
+                if (len(metric_list) > 1 and not dim_color)
+                else metric_primary
+            )
+            fig = px.bar(
+                df,
+                x=x_param,
+                y=dim_primary,
+                color=dim_color,
+                orientation="h",
+                barmode="stack",
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                labels=labels,
+                title=args.title,
+            )
+
+        elif args.chart_type == "area char":
+            fig = px.area(
+                df,
+                x=dim_primary,
+                y=metric_primary,
+                color=dim_color,
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                labels=labels,
+                title=args.title,
+            )
+
+        elif args.chart_type == "multiareachart":
+            y_param = (
+                metric_list
+                if (len(metric_list) > 1 and not dim_color)
+                else metric_primary
+            )
+            fig = px.area(
+                df,
+                x=dim_primary,
+                y=y_param,
+                color=dim_color,
+                color_discrete_sequence=color_palette,
+                hover_data=hover_dict or None,
+                labels=labels,
+                title=args.title,
+            )
+
+        # 5. Generación del Selector/Filtro Interactivo (updatemenus)
+        # Si se especificó una columna de filtro y existen múltiples trazas generadas
+        updatemenus = []
+        if args.filter_column and len(fig.data) > 1:
+            buttons = [
+                dict(
+                    label="Todos",
+                    method="update",
+                    args=[
+                        {"visible": [True] * len(fig.data)},
+                        {
+                            "title": (
+                                f"{args.title or ''} (Filtro: Todos)"
+                                if args.title
+                                else "Todos"
+                            )
+                        },
+                    ],
+                )
+            ]
+
+            for i, trace in enumerate(fig.data):
+                # Máscara booleana para aislar únicamente la traza seleccionada
+                visibility_mask = [False] * len(fig.data)
+                visibility_mask[i] = True
+                buttons.append(
+                    dict(
+                        label=trace.name,
+                        method="update",
+                        args=[
+                            {"visible": visibility_mask},
+                            {
+                                "title": (
+                                    f"{args.title or ''} - {trace.name}"
+                                    if args.title
+                                    else trace.name
+                                )
+                            },
+                        ],
+                    )
+                )
+
+            updatemenus.append(
+                dict(
+                    type="dropdown",
+                    direction="down",
+                    showactive=True,
+                    x=0.0,
+                    xanchor="left",
+                    y=1.18,
+                    yanchor="top",
+                    pad={"r": 10, "t": 10},
+                    buttons=buttons,
+                )
+            )
+
+        # 6. Formato de Tooltips y Estilo Global
+        # Si no es pie chart, aseguramos tooltip interactivo con formato de miles y decimales
+        if args.chart_type != "pie chart":
+            for trace in fig.data:
+                # Si es barra horizontal, X es la métrica numérica; si no, es Y
+                if "orientation" in trace and trace.orientation == "h":
+                    trace.hovertemplate = (
+                        "<b>%{y}</b><br>"
+                        + f"{args.x_label or metric_primary}: "
+                        + "<b>%{x:,.2f}</b><extra></extra>"
+                    )
+                else:
+                    trace.hovertemplate = (
+                        "<b>%{x}</b><br>"
+                        + f"{args.y_label or metric_primary}: "
+                        + "<b>%{y:,.2f}</b><extra></extra>"
+                    )
+
+        # Ajuste visual general
+        fig.update_layout(
+            template="plotly_white",
+            hovermode="closest",
+            hoverlabel=dict(
+                bgcolor="rgba(255, 255, 255, 0.95)",
+                font_size=13,
+                font_family="Arial, sans-serif",
+                bordercolor="#d1d5db",
+            ),
+            margin=dict(l=40, r=40, t=80 if updatemenus else 60, b=40),
+            updatemenus=updatemenus if updatemenus else None,
+            legend=dict(
+                orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
+            ),
+        )
+
+        # 7. Persistir en disco
+        artifacts_dir = Path(__file__).resolve().parent.parent / "artifacts"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+        chart_id = f"chart_{uuid.uuid4().hex[:8]}"
+        file_path = artifacts_dir / f"{chart_id}.html"
+        fig.write_html(str(file_path), include_plotlyjs="cdn")
+
+        response_payload = {
+            "status": "success",
+            "chart_id": chart_id,
+            "chart_type": args.chart_type,
+            "artifact_path": str(file_path),
+            "filter_applied": bool(args.filter_column),
+            "message": (
+                f"Gráfico generado exitosamente en '{file_path}' "
+                f"con selector interactivo y tooltips dinámicos."
+            ),
+        }
+
+        return ToolResult(
+            ok=True,
+            content=json.dumps(response_payload),
+            metadata={
+                "chart_id": chart_id,
+                "file_path": str(file_path),
+                "dataset_id": args.dataset_id,
+                "has_filter": bool(args.filter_column),
+            },
+        )
+
+    except Exception as e:
+        return ToolResult(
+            ok=False,
+            content=f"Error al generar el gráfico con Plotly: {e}",
+            metadata={"error_type": type(e).__name__},
+        )
 
 if __name__ == "__main__":
+
+    def show_tool_result(step_name: str, result: ToolResult) -> None:
+        """Imprime el resultado formateado sin romper si el contenido es un mensaje de error plano."""
+        print(f"\n>>> {step_name}")
+        print(f"OK: {result.ok}")
+        try:
+            parsed = json.loads(result.content)
+            print(
+                f"Content:\n{json.dumps(parsed, indent=2, ensure_ascii=False)}"
+            )
+        except (json.JSONDecodeError, TypeError):
+            print(f"Content: {result.content}")
+        print(f"Metadata: {result.metadata}")
 
     registry = ToolRegistry()
     policy = ToolPolicy()
 
     viewer_context = ExecutionContext(
-    user_id="viewer-demo",
-    role="viewer",
-    workspace_ids=["support-ops"],
-    allow_drafts=False,
-    allow_external_writes=False,
-    run_id="c9-viewer-demo") 
+        user_id="viewer-demo",
+        role="viewer",
+        workspace_ids=["support-ops"],
+        allow_drafts=False,
+        allow_external_writes=False,
+        run_id="c9-viewer-demo",
+    )
 
     support_agent_context = ExecutionContext(
-    user_id="support-agent-demo",
-    role="support_agent",
-    workspace_ids=["support-ops"],
-    allow_drafts=True,
-    allow_external_writes=False,
-    run_id="c9-support-agent-demo")
+        user_id="support-agent-demo",
+        role="support_agent",
+        workspace_ids=["support-ops"],
+        allow_drafts=True,
+        allow_external_writes=False,
+        run_id="c9-support-agent-demo",
+    )
 
     registry.register(
-    Tool(
-        name="execute_query_tool",
-        description=(
-            "Ejecuta una consulta SQL SELECT sobre PostgreSQL, analiza el resultado "
-            "con un DataFrame de pandas y retorna los primeros 10 registros como diccionario."
-        ),
-        kind="read",
-        fn=execute_query_tool,
-        args_model=QuerySchema,
-        timeout_s=5.0,
-        retries=0,          # Las consultas a BD no suelen requerir retries automáticos
-        backoff_s=0.05,
-        idempotent=True,    # SELECT es una operación de lectura idempotente
+        Tool(
+            name="execute_query_tool",
+            description=(
+                "Ejecuta una consulta SQL SELECT sobre PostgreSQL y persiste el DataFrame "
+                "resultante en memoria. Devuelve únicamente el 'dataset_id' asignado para ser "
+                "consumido por 'summarize_dataframe_tool' o 'create_plotly_chart_tool'."
+            ),
+            kind="read",
+            fn=execute_query_tool,
+            args_model=QuerySchema,
+            timeout_s=5.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
     )
-)
-    call = ToolCall(
-        tool_name="execute_query_tool",
-        arguments={
-            "query": "SELECT d.year AS \"Año\", ct.countryname AS \"País del cliente\", ct2.countryname AS \"País del proveedor\", SUM(s.salesamount) AS \"Ventas\"\nFROM sales s\nJOIN date d ON s.orderdatekey = d.datekey\nJOIN customer c ON s.customerkey = c.customerkey\nJOIN city cy ON cy.citykey = c.citykey\nJOIN state st ON st.statekey = cy.statekey\nJOIN country ct ON ct.countrykey = st.countrykey\nJOIN supplier sp ON sp.supplierkey = s.supplierkey\nJOIN city cy2 ON cy2.citykey = sp.citykey\nJOIN state st2 ON st2.statekey = cy2.statekey\nJOIN country ct2 ON ct2.countrykey = st2.countrykey\nGROUP BY d.year, ct.countryname, ct2.countryname\nORDER BY d.year, ct.countryname, ct2.countryname",
-        },
+
+    registry.register(
+        Tool(
+            name="summarize_dataframe_tool",
+            description=(
+                "Calcula métricas sobre un dataset en memoria referenciado por su 'dataset_id'. "
+                "Permite aplicar describe_numeric, agregaciones globales (sum, mean, median, min, "
+                "max, count, nunique) o agrupaciones por dimensiones (group_by) con límite de filas."
+            ),
+            kind="read",
+            fn=summarize_dataframe_tool,
+            args_model=SummarizeSchema,
+            timeout_s=5.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
     )
+
+    registry.register(
+        Tool(
+            name="create_plotly_chart_tool",
+            description=(
+                "Genera gráficos interactivos con Plotly a partir de un 'dataset_id' en memoria. "
+                "Soporta multilíneas, líneas, pie chart, barras horizontales/verticales (simples y apiladas) "
+                "y áreas. Permite configurar dimensiones, métricas, etiquetas, tooltips y un selector de "
+                "filtro interactivo. Exporta el archivo HTML resultante a la carpeta 'artifacts/'."
+            ),
+            kind="local_write",
+            fn=create_plotly_chart_tool,
+            args_model=CreateChartSchema,
+            timeout_s=10.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=False,
+        )
+    )
+
     try:
-        # Ejecutamos pasando context y policy explícitamente
-        result = registry.run(
-            call,
+        # =========================================================================
+        # 1. Probar execute_query_tool
+        # =========================================================================
+        call_query = ToolCall(
+            tool_name="execute_query_tool",
+            arguments={
+                "query": (
+                    'SELECT d.year AS "Año", ct.countryname AS "País del cliente", '
+                    'ct2.countryname AS "País del proveedor", SUM(s.salesamount) AS "Ventas"\n'
+                    "FROM sales s\n"
+                    "JOIN date d ON s.orderdatekey = d.datekey\n"
+                    "JOIN customer c ON s.customerkey = c.customerkey\n"
+                    "JOIN city cy ON cy.citykey = c.citykey\n"
+                    "JOIN state st ON st.statekey = cy.statekey\n"
+                    "JOIN country ct ON ct.countrykey = st.countrykey\n"
+                    "JOIN supplier sp ON sp.supplierkey = s.supplierkey\n"
+                    "JOIN city cy2 ON cy2.citykey = sp.citykey\n"
+                    "JOIN state st2 ON st2.statekey = cy2.statekey\n"
+                    "JOIN country ct2 ON ct2.countrykey = st2.countrykey\n"
+                    'GROUP BY d.year, ct.countryname, ct2.countryname\n'
+                    'ORDER BY d.year, ct.countryname, ct2.countryname'
+                ),
+            },
+        )
+
+        result_query = registry.run(
+            call_query,
             context=support_agent_context,
             policy=policy,
         )
-        print("--- RESULTADO DEL RUNTIME ---")
-        print(f"OK: {result.ok}")
-        print(f"Content:\n{result.content}")
-        print(f"Metadata:\n{result.metadata}")
+        show_tool_result("[1/3] execute_query_tool", result_query)
+
+        if not result_query.ok:
+            raise RuntimeError(
+                f"Fallo en execute_query_tool: {result_query.content}"
+            )
+
+        dataset_id = json.loads(result_query.content)["dataset_id"]
+
+        # =========================================================================
+        # 2. Probar summarize_dataframe_tool
+        # =========================================================================
+        call_summary = ToolCall(
+            tool_name="summarize_dataframe_tool",
+            arguments={
+                "dataset_id": dataset_id,
+                "group_by": ["País del cliente"],
+                "aggregations": [
+                    {
+                        "column": "Ventas",
+                        "agg": "sum",
+                        "alias": "Ventas_Totales",
+                    },
+                    {
+                        "column": "País del proveedor",
+                        "agg": "nunique",
+                        "alias": "Proveedores_Unicos",
+                    },
+                ],
+                "sort_by": "Ventas_Totales",
+                "ascending": False,
+                "limit": 5,
+            },
+        )
+
+        result_summary = registry.run(
+            call_summary,
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result(
+            f"[2/3] summarize_dataframe_tool sobre '{dataset_id}'",
+            result_summary,
+        )
+
+        if not result_summary.ok:
+            raise RuntimeError(
+                f"Fallo en summarize_dataframe_tool: {result_summary.content}"
+            )
+
+        # =========================================================================
+        # 3. Probar create_plotly_chart_tool
+        # =========================================================================
+        call_chart = ToolCall(
+            tool_name="create_plotly_chart_tool",
+            arguments={
+                "dataset_id": dataset_id,
+                "chart_type": "column bar",
+                "dimensions": ["País del cliente"],
+                "metrics": ["Ventas"],
+                "filter_column": "Año",
+                "hover_columns": ["País del proveedor"],
+                "title": "Ventas por País del Cliente con Filtro de Año",
+                "x_label": "País del Cliente",
+                "y_label": "Monto Total de Ventas",
+            },
+        )
+
+        result_chart = registry.run(
+            call_chart,
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result(
+            f"[3/3] create_plotly_chart_tool sobre '{dataset_id}'", result_chart
+        )
 
     finally:
-        # Cerramos los workers e hilos de fondo del pool limpiamente
         pool.close()

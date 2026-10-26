@@ -39,6 +39,7 @@ matplotlib==3.11.0
 matplotlib-inline==0.2.2
 md2pdf==3.1.1
 mdurl==0.1.2
+narwhals==2.27.1
 nest-asyncio2==1.7.2
 numpy==2.5.1
 openai==2.45.0
@@ -48,6 +49,7 @@ parso==0.8.7
 pexpect==4.9.0
 pillow==12.3.0
 platformdirs==4.10.0
+plotly==7.1.0
 prompt_toolkit==3.0.52
 psutil==7.2.2
 psycopg==3.3.6

@@ -165,11 +165,7 @@ class GeminiClient:
         except Exception as exc:
             mapped_exc = self._map_exception(exc)
             raise mapped_exc from exc
-            return {
-            "executed": False,
-            "reason": self._map_exception(exc),
-            "detail": str(exc),
-        }
+
 
     async def agenerate(self, prompt: str,
                          *, 
@@ -188,11 +184,8 @@ class GeminiClient:
             )
             return self._normalize(response, started)
         except Exception as exc:
-            return {
-            "executed": False,
-            "reason": self._map_exception(exc),
-            "detail": str(exc),
-        }
+            mapped_exc = self._map_exception(exc)
+            raise mapped_exc from exc
 
 if __name__ == "__main__":
 
@@ -235,7 +228,7 @@ if __name__ == "__main__":
     system_prompt_content = zero_shot_system_prompt()
 
     system_prompt_content += """\n# TOOLS
-    Dispone de tools para consultar la base de datos y obtener respuestas
+    Dispones de tools para consultar la base de datos y obtener respuestas
 """
 
     print(system_prompt_content)
