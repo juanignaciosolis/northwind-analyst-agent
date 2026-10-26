@@ -23,7 +23,7 @@ from src.utils.errors import (ProviderConfigurationError,
                               ProviderTimeoutError, 
                               TransientProviderError,
                               InvalidRequestError)
-from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, pool
+from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, pool, ToolResult
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.settings import settings
 
@@ -85,6 +85,69 @@ class GeminiClient:
         )
 
     @staticmethod
+    def _build_contents(
+        prompt: str,
+        tool_results: list[ToolResult] | None = None,
+    ) -> list[types.Content]:
+        """
+        Construye la secuencia de turnos requerida por Gemini:
+        1. Turno 'user': prompt inicial.
+        2. Si hay tool_results:
+           - Turno 'model': function_call simulado para cada tool.
+           - Turno 'user': function_response con el contenido del ToolResult.
+        """
+        if not tool_results:
+            return prompt
+        
+        # 1. Turno inicial del usuario
+        contents: list[types.Content] = [
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=prompt)],
+            )
+        ]
+
+        # 2. Si hay resultados de herramientas, construir la pareja llamada-respuesta
+        if tool_results:
+            model_calls: list[types.Part] = []
+            user_responses: list[types.Part] = []
+
+            for tr in tool_results:
+                tool_name = tr.metadata.get("name")
+                if not tool_name:
+                    raise ValueError(
+                        "ToolResult requiere el campo 'name' dentro de metadata"
+                    )
+
+                # Argumentos usados (si se guardaron en metadata)
+                tool_args = tr.metadata.get("arguments", {})
+
+                # Invocación previa requerida por la API
+                model_calls.append(
+                    types.Part.from_function_call(
+                        name=tool_name,
+                        args=tool_args,
+                    )
+                )
+
+                # Salida devuelta al modelo
+                user_responses.append(
+                    types.Part.from_function_response(
+                        name=tool_name,
+                        response={
+                            "ok": tr.ok,
+                            "content": tr.content,
+                            "metadata": tr.metadata,
+                        },
+                    )
+                )
+
+            contents.append(types.Content(role="model", parts=model_calls))
+            contents.append(types.Content(role="user", parts=user_responses))
+
+        return contents
+
+    @staticmethod
     def _usage(response) -> tuple[int, int]:
         
         usage = getattr(response, "usage_metadata", None)
@@ -138,7 +201,8 @@ class GeminiClient:
                  system: str | None = None, 
                  temperature: float = 0.2, 
                  max_output_tokens: int | None = None, 
-                 available_tools: list[dict[str, Any]] | None = None
+                 available_tools: list[dict[str, Any]] | None = None,
+                 tool_results: list[ToolResult] | None = None
                  ) -> GenerationResult:
 
         logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}\nMTools- {available_tools}")
@@ -152,11 +216,16 @@ class GeminiClient:
 
         logger.info("Se evia el mensaje por API")
 
+        contents = self._build_contents(
+            prompt=prompt,
+            tool_results=tool_results,
+        )
+
         started = time.perf_counter()
         try:
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=prompt,
+                contents=contents,
                 config=self._config(system, temperature, max_output_tokens, available_tools),
             )
 
@@ -171,15 +240,20 @@ class GeminiClient:
                          *, 
                          system: str | None = None, 
                          temperature: float = 0.2,
-                         available_tools: list[dict[str, Any]] | None = None
+                         available_tools: list[dict[str, Any]] | None = None,
+                         tool_results: list[ToolResult] | None = None
                          ) -> GenerationResult:
         if not prompt.strip():
             raise InvalidRequestError("El prompt no puede estar vacío")
         started = time.perf_counter()
+        contents = self._build_contents(
+                    prompt=prompt,
+                    tool_results=tool_results,
+                )
         try:
             response = await self.client.aio.models.generate_content(
                 model=self.model,
-                contents=prompt,
+                contents=contents,
                 config=self._config(system, temperature),
             )
             return self._normalize(response, started)
@@ -235,8 +309,8 @@ if __name__ == "__main__":
 
     prompt = "Dame las ventas por cliente"
 
-    respuesta = client.generate(prompt= prompt, system = system_prompt_content, available_tools= function_declarations)
-
-    print("\n\n","RESPUESTA:\n",respuesta)
-    
-    pool.close()
+    try:
+        respuesta = client.generate(prompt= prompt, system = system_prompt_content, available_tools= function_declarations)
+        print("\n\n","RESPUESTA:\n",respuesta)
+    finally:
+        pool.close()

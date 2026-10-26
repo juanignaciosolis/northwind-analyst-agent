@@ -41,6 +41,7 @@ northwind/
 
 # Artifacts
 artifacts/*.json
+src/agent/artifacts/*.html
 
 # Utils
 tests/populate_dataset.py

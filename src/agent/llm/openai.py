@@ -23,7 +23,7 @@ from src.utils.errors import (ProviderConfigurationError,
                               InvalidProviderResponseError,
                               InvalidRequestError)
 
-from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, pool
+from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, pool, ToolResult
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.settings import settings
 
@@ -75,6 +75,39 @@ class OpenAIClient:
             tools.append(tool)
 
         return tools
+
+    @staticmethod
+    def _build_input(
+        prompt: str,
+        tool_results: list[ToolResult] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Construye el historial de entrada para el LLM."""
+
+        history = [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ]
+
+        if tool_results:
+            observations = [
+                result.model_dump(mode="json")
+                for result in tool_results
+            ]
+
+            history.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "Resultados de las herramientas ejecutadas "
+                        "(observaciones para continuar el proceso):\n"
+                        + json.dumps(observations, ensure_ascii=False)
+                    ),
+                }
+            )
+
+        return history
 
     @staticmethod
     def _usage(response) -> tuple[int, int]:
@@ -129,7 +162,9 @@ class OpenAIClient:
                   *, system: str | None = None, 
                   temperature: float = 0.2, 
                   max_output_tokens: int | None = None,
-                  available_tools: list[dict[str, Any]] | None = None) -> GenerationResult:
+                  available_tools: list[dict[str, Any]] | None = None,
+                  tool_results: list[ToolResult] | None = None
+                  ) -> GenerationResult:
 
         logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
 
@@ -142,13 +177,14 @@ class OpenAIClient:
 
         logger.debug("Prompt: " + f"[orange3]{prompt}[/]")
 
+        history = self._build_input(prompt, tool_results)
         try:
             started = time.perf_counter()
             response = self.client.responses.parse(
                 model=self.model,
                 instructions=system,
                 store=False,
-                input=prompt,
+                input=history,
                 temperature= temperature_validator(temperature),
                 max_output_tokens=max_output_tokens,
                 tools=tools)
@@ -168,11 +204,14 @@ class OpenAIClient:
                          *, 
                          system: str | None = None, 
                          temperature: float = 0.2,
-                         available_tools: list[dict[str, Any]] | None = None) -> GenerationResult:
+                         available_tools: list[dict[str, Any]] | None = None,
+                         tool_results: list[ToolResult] | None = None) -> GenerationResult:
         if not prompt.strip():
             raise InvalidRequestError("El prompt no puede estar vacío")
 
         tools = self._normalize_tools(available_tools)
+
+        history = self._build_input(prompt, tool_results)
 
         started = time.perf_counter()
         try:
@@ -180,7 +219,7 @@ class OpenAIClient:
                 model=self.model,
                 instructions=system,
                 store=False,
-                input=prompt,
+                input=history,
                 temperature= temperature_validator(temperature),
                 tools=tools)
             

@@ -684,6 +684,7 @@ def execute_query_tool(
                 "dataset_id": dataset_id,
                 "total_rows_fetched": len(df),
                 "columns": columnas,
+                "name": "execute_query_tool",
             },
         )
 
@@ -691,7 +692,8 @@ def execute_query_tool(
         return ToolResult(
             ok=False,
             content=f"Error al ejecutar la consulta: {e}",
-            metadata={"error_type": type(e).__name__},
+            metadata={"error_type": type(e).__name__,
+                      "name": "execute_query_tool"},
         )
 
 def summarize_dataframe_tool(
@@ -704,7 +706,8 @@ def summarize_dataframe_tool(
         return ToolResult(
             ok=False,
             content="Error: No hay contexto de ejecución disponible.",
-            metadata={"error_type": "NoContextAvailable"},
+            metadata={"error_type": "NoContextAvailable",
+                      "name": "summarize_dataframe_tool"},
         )
 
     # 1. Obtener DataFrame del almacén
@@ -714,14 +717,16 @@ def summarize_dataframe_tool(
         return ToolResult(
             ok=False,
             content=f"No se encontró el dataset '{args.dataset_id}'. IDs en memoria: {valid_ids}",
-            metadata={"error_type": "DatasetNotFound"},
+            metadata={"error_type": "DatasetNotFound",
+                      "name": "summarize_dataframe_tool"},
         )
 
     if df.empty:
         return ToolResult(
             ok=False,
             content="El dataset solicitado está vacío (0 filas).",
-            metadata={"error_type": "EmptyDataframeError"},
+            metadata={"error_type": "EmptyDataframeError",
+                      "name": "summarize_dataframe_tool"},
         )
 
     try:
@@ -753,7 +758,8 @@ def summarize_dataframe_tool(
                 return ToolResult(
                     ok=False,
                     content=f"Columnas no encontradas en el dataset: {set(missing)}",
-                    metadata={"error_type": "ColumnNotFoundError"},
+                    metadata={"error_type": "ColumnNotFoundError",
+                              "name": "summarize_dataframe_tool"},
                 )
 
             # Caso A: Group By
@@ -826,6 +832,7 @@ def summarize_dataframe_tool(
             metadata={
                 "dataset_id": args.dataset_id,
                 "source_rows": len(df),
+                "name": "summarize_dataframe_tool",
             },
         )
 
@@ -833,7 +840,8 @@ def summarize_dataframe_tool(
         return ToolResult(
             ok=False,
             content=f"Error durante el resumen analítico: {e}",
-            metadata={"error_type": type(e).__name__},
+            metadata={"error_type": type(e).__name__,
+                      "name": "summarize_dataframe_tool"},
         )
 
 
@@ -847,7 +855,8 @@ def create_plotly_chart_tool(
         return ToolResult(
             ok=False,
             content="Error: No existe un contexto de ejecución activo.",
-            metadata={"error_type": "NoContextAvailable"},
+            metadata={"error_type": "NoContextAvailable",
+                      "name": "create_plotly_chart_tool"},
         )
 
     # 1. Recuperar el DataFrame
@@ -857,7 +866,8 @@ def create_plotly_chart_tool(
         return ToolResult(
             ok=False,
             content=f"Dataset '{args.dataset_id}' no encontrado. IDs disponibles: {valid_ids}",
-            metadata={"error_type": "DatasetNotFound"},
+            metadata={"error_type": "DatasetNotFound",
+                      "name": "create_plotly_chart_tool"},
         )
 
     # 2. Validar columnas requeridas
@@ -872,7 +882,8 @@ def create_plotly_chart_tool(
         return ToolResult(
             ok=False,
             content=f"Las siguientes columnas no existen en el dataset: {set(missing)}",
-            metadata={"error_type": "ColumnNotFoundError"},
+            metadata={"error_type": "ColumnNotFoundError",
+                      "name": "create_plotly_chart_tool"},
         )
 
     # 3. Preparación de variables de diseño
@@ -1161,6 +1172,7 @@ def create_plotly_chart_tool(
                 "file_path": str(file_path),
                 "dataset_id": args.dataset_id,
                 "has_filter": bool(args.filter_column),
+                "name": "create_plotly_chart_tool",
             },
         )
 
@@ -1168,7 +1180,8 @@ def create_plotly_chart_tool(
         return ToolResult(
             ok=False,
             content=f"Error al generar el gráfico con Plotly: {e}",
-            metadata={"error_type": type(e).__name__},
+            metadata={"error_type": type(e).__name__,
+                      "name": "create_plotly_chart_tool"},
         )
 
 if __name__ == "__main__":

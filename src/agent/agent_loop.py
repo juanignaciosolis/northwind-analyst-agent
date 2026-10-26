@@ -5,7 +5,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from src.tools.tools import ToolCall
+from src.agent.tools.tools import ToolResult
+from src.agent.tools.tools import ToolCall
+from src.agent.llm import build_provider
+from src.agent.llm.contract import LLMProvider
 
 class AgentDecision(BaseModel):
     """Representa la decisión del modelo/router para el próximo paso."""
@@ -26,6 +29,23 @@ SENSITIVE_MARKERS = {
     "host",
     "user"
 }
+
+def decide_next(
+    client: LLMProvider,
+    user_message: str,
+    available_tools: list[dict[str, Any]] | None = None,
+    observations: list[ToolResult] | None = None,
+) -> AgentDecision:
+    
+    response = client.generate(prompt=user_message, 
+                               available_tools=available_tools, 
+                               tool_results=observations)
+    return AgentDecision(
+        action="tool" if response.executed else "final",
+        tool_name=response.tool_name,
+        arguments=response.tool_arguments,
+        final_answer=response.final_text,
+    )
 
 def sanitize_for_trace(value):
     """Enmascara secretos simples antes de persistir datos en una traza.
@@ -144,3 +164,5 @@ def run_basic_agent(
         "observations": observations,
         "stop_reason": "max_steps",
     }
+
+if __name__ == "__main__":

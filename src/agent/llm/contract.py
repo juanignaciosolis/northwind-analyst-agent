@@ -3,6 +3,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Protocol, AsyncIterator, Any, Literal
 from src.schemas.output_schemas import SQLAnswer, InvalidAnswerScheme, AnswerOpenAIScheme
+from src.agent.tools.tools import ToolResult
 
 @dataclass(frozen=True)
 class GenerationResult:
@@ -33,7 +34,8 @@ class LLMProvider(Protocol):
         system: str | None = None,
         temperature: float = 0.2,
         max_output_tokens: int | None = None,
-        available_tools: list[dict[str, Any]] | None = None
+        available_tools: list[dict[str, Any]] | None = None,
+        tool_results: list[ToolResult] | None = None
     ) -> GenerationResult:
         ...
 
@@ -44,7 +46,8 @@ class LLMProvider(Protocol):
         system: str | None = None,
         temperature: float = 0.2,
         max_output_tokens: int | None = None,
-        available_tools: list[dict[str, Any]] | None = None
+        available_tools: list[dict[str, Any]] | None = None,
+        tool_results: list[ToolResult] | None = None
     ) -> GenerationResult:
         ...
 
