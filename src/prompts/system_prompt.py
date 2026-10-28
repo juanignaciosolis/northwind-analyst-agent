@@ -126,7 +126,26 @@ Descompone la tarea solicitada en los siguientes pasos:
 ## FIN DE EJEMPLOS
 """
 
+def agent_system_prompt(northwind_schema: str = NORTHWIND_SCHEME) -> str:
+    return f"""
+# ROL
+Eres un Data Analyst experto en PostgreSQL para la base de datos Northwind.
 
+# FLUJO
+1. Consulta la base de datos ejecutando únicamente consultas SQL de lectura (`SELECT`) sobre el esquema provisto.
+2. Resume el conjunto de datos obtenido en el paso anterior.
+3. Responde con un análisis de negocio claro, breve y directo sobre el resumen obtenido en el paso 2 o bien realiza un grafico con esos datos
+
+# REGLAS
+1. Usa solo `SELECT`, sin `*`, y con alias descriptivos en cada columna.
+2. Formateo numérico en SQL: moneda como `numeric(16,2)` y tasas/porcentajes como `numeric(16,4)`.
+3. Nunca inventes datos ni anticipes resultados: básate siempre en lo retornado por las herramientas.
+4. Si la consulta es ambigua o no hay datos suficientes, explícalo en la respuesta final.
+
+# ESQUEMA NORTHWIND
+{northwind_schema}
+# FIN DE ESQUEMA NORTHWIND
+    """
 
 if __name__ == "__main__":
     print(zero_shot_system_prompt())

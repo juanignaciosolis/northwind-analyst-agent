@@ -6,10 +6,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from src.agent.tools.tools import ToolResult
-from src.agent.tools.tools import ToolCall
+from src.agent.tools.tools import ToolCall, Tool, ExecutionContext, ToolRegistry, ToolPolicy
+from src.agent.tools.tools import execute_query_tool, summarize_dataframe_tool, create_plotly_chart_tool
+from src.agent.tools.tools import QuerySchema, SummarizeSchema, CreateChartSchema
+from src.prompts.system_prompt import agent_system_prompt, zero_shot_system_prompt
 from src.settings import settings
 from src.agent.llm import build_provider
 from src.agent.llm.contract import LLMProvider
+from src.utils.database import pool
 
 class AgentDecision(BaseModel):
     """Representa la decisión del modelo/router para el próximo paso."""
@@ -33,6 +37,7 @@ SENSITIVE_MARKERS = {
 
 def decide_next(
     client: LLMProvider,
+    system_prompt: str | None,
     user_message: str,
     available_tools: list[dict[str, Any]] | None = None,
     observations: list[ToolResult] | None = None,
@@ -40,6 +45,7 @@ def decide_next(
     
     call = client.generate(
         prompt=user_message, 
+        system=system_prompt,
         available_tools=available_tools, 
         tool_results=observations
     )
@@ -83,6 +89,8 @@ def sanitize_for_trace(value):
     return value
 
 def run_basic_agent(
+    client: LLMProvider,
+    system_prompt: str | None,
     user_message,
     registry,
     decide_next,
@@ -104,7 +112,13 @@ def run_basic_agent(
     started = time.perf_counter()
     tool_calls = 0
 
+    available_tools = registry.function_declarations(
+    context=context,
+    policy=policy,
+    )
+
     for step in range(1, max_steps + 1):
+        print(f"Step {step}")
         if time.perf_counter() - started > max_seconds:
             return {
                 "answer": "Se alcanzó el límite de tiempo.",
@@ -113,7 +127,7 @@ def run_basic_agent(
                 "stop_reason": "timeout",
             }
 
-        decision = decide_next(user_message, observations)
+        decision = decide_next(client=client, system_prompt=system_prompt, user_message=user_message, observations=observations, available_tools=available_tools)
         trace.append({
             "run_id": getattr(context, "run_id", None),
             "step": step,
@@ -122,6 +136,7 @@ def run_basic_agent(
         })
 
         if decision.action == "final":
+            print("Final answer:", decision.final_answer)
             return {
                 "answer": decision.final_answer,
                 "trace": trace,
@@ -144,7 +159,7 @@ def run_basic_agent(
                 "observations": observations,
                 "stop_reason": "unrecoverable_error",
             }
-
+        print(f"Calling tool: {decision.tool_name} with arguments: {decision.arguments}")
         result = registry.run(
             ToolCall(
                 tool_name=decision.tool_name,
@@ -158,6 +173,7 @@ def run_basic_agent(
         tool_calls += 1
         observations.append(result)
 
+        print(f"Observation from tool {decision.tool_name}: {result.model_dump()}")
         trace.append({
             "run_id": getattr(context, "run_id", None),
             "step": step,
@@ -175,6 +191,104 @@ def run_basic_agent(
     }
 
 if __name__ == "__main__":
+
+    system_prompt_content = agent_system_prompt()
+    
     client = build_provider(settings)
-    desicion = decide_next(client, "¿Cuál es la capital de Francia?")
-    print(desicion)   
+    
+    registry = ToolRegistry()
+    policy = ToolPolicy()
+
+    viewer_context = ExecutionContext(
+        user_id="viewer-demo",
+        role="viewer",
+        workspace_ids=["support-ops"],
+        allow_drafts=False,
+        allow_external_writes=False,
+        run_id="c9-viewer-demo",
+    )
+
+    support_agent_context = ExecutionContext(
+        user_id="support-agent-demo",
+        role="support_agent",
+        workspace_ids=["support-ops"],
+        allow_drafts=True,
+        allow_external_writes=False,
+        run_id="c9-support-agent-demo",
+    )
+
+    registry.register(
+        Tool(
+            name="execute_query_tool",
+            description=(
+                "Ejecuta una consulta SQL SELECT sobre PostgreSQL y persiste el DataFrame "
+                "resultante en memoria. Devuelve únicamente el 'dataset_id' asignado para ser "
+                "consumido por 'summarize_dataframe_tool' o 'create_plotly_chart_tool'."
+                "Se recomienda usar esta tool para buscar informacion en la base de datos para luego resumirla."
+            ),
+            kind="read",
+            fn=execute_query_tool,
+            args_model=QuerySchema,
+            timeout_s=300,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="summarize_dataframe_tool",
+            description=(
+                "Calcula métricas sobre un dataset en memoria referenciado por su 'dataset_id'. "
+                "Permite aplicar describe_numeric, agregaciones globales (sum, mean, median, min, "
+                "max, count, nunique) o agrupaciones por dimensiones (group_by) con límite de filas."
+                "Se recomienda usar esta tool para resumir la información obtenida de la base de datos y luego graficar o contestar directamente."
+            ),
+            kind="read",
+            fn=summarize_dataframe_tool,
+            args_model=SummarizeSchema,
+            timeout_s=300,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="create_plotly_chart_tool",
+            description=(
+                "Genera gráficos interactivos con Plotly a partir de un 'dataset_id' en memoria. "
+                "Soporta multilíneas, líneas, pie chart, barras horizontales/verticales (simples y apiladas) "
+                "y áreas. Permite configurar dimensiones, métricas, etiquetas, tooltips y un selector de "
+                "filtro interactivo. Exporta el archivo HTML resultante a la carpeta 'artifacts/'."
+                "Se recomienda usar esta tool para graficar la información previamente resumida."
+            ),
+            kind="local_write",
+            fn=create_plotly_chart_tool,
+            args_model=CreateChartSchema,
+            timeout_s=300,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=False,
+        )
+    )
+    try:
+        agent_run = run_basic_agent(
+        client,
+        system_prompt=system_prompt_content,
+        user_message="Consulta cuantos clientes hay en la empresa y luego decime",
+        registry=registry,
+        decide_next=decide_next,
+        max_steps=8,
+        max_seconds=300,
+        context=support_agent_context,
+        policy=policy,
+        max_tool_calls=4,
+        )
+    
+    finally:
+        pool.close()
+
+    print(agent_run)  

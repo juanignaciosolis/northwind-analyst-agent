@@ -276,10 +276,7 @@ if __name__ == "__main__":
     system_prompt_content += """\n# TOOLS
     Dispones de tools para consultar la base de datos y obtener respuestas
 """
-
-    print(system_prompt_content)
-
-    prompt = "Dame las ventas por cliente"
+    prompt = "cuantos clientes tengo en mi empresa y cuantos pedidos han realizado en total?"
 
     respuesta = client.generate(prompt= prompt, system = system_prompt_content, available_tools= function_declarations)
 

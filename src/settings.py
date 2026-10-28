@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     gemini_default_model: str = "gemini-3.1-flash-lite"
     openai_default_model: str = "gpt-4o-mini"
-    default_provider: str = "GEMINI"
+    default_provider: str = "OPENAI"
 
     db_user: str = "postgres"
     db_password: SecretStr | None = None

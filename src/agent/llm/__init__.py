@@ -10,7 +10,7 @@ def build_provider(settings):
     if getattr(settings,"default_provider", None) == "OPENAI":
         return OpenAIClient(settings.api_key_value(), settings.openai_default_model)
 #    return FakeProvider(model=f"fake:{settings.default_model}")
-
+    raise ValueError(f"Proveedor no soportado o no configurado: '{settings.default_provider}'")
 
 __all__ = ["build_provider"]
 
