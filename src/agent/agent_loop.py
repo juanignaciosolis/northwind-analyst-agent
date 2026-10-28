@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from src.agent.tools.tools import ToolResult
 from src.agent.tools.tools import ToolCall
+from src.settings import settings
 from src.agent.llm import build_provider
 from src.agent.llm.contract import LLMProvider
 
@@ -37,13 +38,21 @@ def decide_next(
     observations: list[ToolResult] | None = None,
 ) -> AgentDecision:
     
-    response = client.generate(prompt=user_message, 
-                               available_tools=available_tools, 
-                               tool_results=observations)
+    call = client.generate(
+        prompt=user_message, 
+        available_tools=available_tools, 
+        tool_results=observations
+    )
+    # Si call ya es el GenerationResult o un wrapper con .result:
+    response = getattr(call, "result", call)
+
+    # Es tool solo si el modelo efectivamente devolvió el nombre de una herramienta
+    is_tool_call = bool(response.tool_name)
+
     return AgentDecision(
-        action="tool" if response.executed else "final",
+        action="tool" if is_tool_call else "final",
         tool_name=response.tool_name,
-        arguments=response.tool_arguments,
+        arguments=response.tool_arguments or {},  # Evita enviar None si Pydantic exige dict
         final_answer=response.final_text,
     )
 
@@ -166,4 +175,6 @@ def run_basic_agent(
     }
 
 if __name__ == "__main__":
-    pass
+    client = build_provider(settings)
+    desicion = decide_next(client, "¿Cuál es la capital de Francia?")
+    print(desicion)   
