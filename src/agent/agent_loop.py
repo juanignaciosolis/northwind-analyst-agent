@@ -21,6 +21,7 @@ class AgentDecision(BaseModel):
     tool_name: str | None = None
     arguments: dict[str, Any] = Field(default_factory=dict)
     final_answer: str | None = None
+    model_content: Any = None
 
 SENSITIVE_MARKERS = {
     "api_key",
@@ -59,6 +60,7 @@ def decide_next(
         action="tool" if is_tool_call else "final",
         tool_name=response.tool_name,
         arguments=response.tool_arguments or {},  # Evita enviar None si Pydantic exige dict
+        model_content=getattr(response, "model_content", None),
         final_answer=response.final_text,
     )
 
@@ -113,9 +115,11 @@ def run_basic_agent(
     tool_calls = 0
 
     available_tools = registry.function_declarations(
-    context=context,
-    policy=policy,
+        context=context,
+        policy=policy,
     )
+
+    print("Pregunta del usuario:", user_message)
 
     for step in range(1, max_steps + 1):
         print(f"Step {step}")
@@ -127,7 +131,13 @@ def run_basic_agent(
                 "stop_reason": "timeout",
             }
 
-        decision = decide_next(client=client, system_prompt=system_prompt, user_message=user_message, observations=observations, available_tools=available_tools)
+        decision = decide_next(
+            client=client,
+            system_prompt=system_prompt,
+            user_message=user_message,
+            observations=observations,
+            available_tools=available_tools,
+        )
         trace.append({
             "run_id": getattr(context, "run_id", None),
             "step": step,
@@ -159,7 +169,11 @@ def run_basic_agent(
                 "observations": observations,
                 "stop_reason": "unrecoverable_error",
             }
-        print(f"Calling tool: {decision.tool_name} with arguments: {decision.arguments}")
+
+        print(
+            f"Calling tool: {decision.tool_name} with arguments:"
+            f" {decision.arguments}"
+        )
         result = registry.run(
             ToolCall(
                 tool_name=decision.tool_name,
@@ -170,10 +184,18 @@ def run_basic_agent(
             policy=policy,
         )
 
+        if result.metadata is None:
+            result.metadata = {}
+        result.metadata["name"] = decision.tool_name
+        result.metadata["arguments"] = decision.arguments
+        result.metadata["model_content"] = decision.model_content
+
         tool_calls += 1
         observations.append(result)
 
-        print(f"Observation from tool {decision.tool_name}: {result.model_dump()}")
+        print(
+            f"Observation from tool {decision.tool_name}: {result.model_dump()}"
+        )
         trace.append({
             "run_id": getattr(context, "run_id", None),
             "step": step,
@@ -221,10 +243,9 @@ if __name__ == "__main__":
         Tool(
             name="execute_query_tool",
             description=(
-                "Ejecuta una consulta SQL SELECT sobre PostgreSQL y persiste el DataFrame "
-                "resultante en memoria. Devuelve únicamente el 'dataset_id' asignado para ser "
-                "consumido por 'summarize_dataframe_tool' o 'create_plotly_chart_tool'."
-                "Se recomienda usar esta tool para buscar informacion en la base de datos para luego resumirla."
+            "Ejecuta consultas SQL SELECT en PostgreSQL y guarda el resultado en memoria. "
+            "Devuelve un 'dataset_id' y los datos completos si son hasta 10 filas, o solo "
+            "la metadata si es más extenso para luego resumir o graficar."
             ),
             kind="read",
             fn=execute_query_tool,
@@ -240,10 +261,9 @@ if __name__ == "__main__":
         Tool(
             name="summarize_dataframe_tool",
             description=(
-                "Calcula métricas sobre un dataset en memoria referenciado por su 'dataset_id'. "
-                "Permite aplicar describe_numeric, agregaciones globales (sum, mean, median, min, "
-                "max, count, nunique) o agrupaciones por dimensiones (group_by) con límite de filas."
-                "Se recomienda usar esta tool para resumir la información obtenida de la base de datos y luego graficar o contestar directamente."
+            "Agrupa, filtra o calcula métricas (sum, mean, count, min, max, describe) sobre "
+            "un dataset en memoria mediante su 'dataset_id'. Devuelve el resumen y un nuevo "
+            "'summary_dataset_id' para responder o graficar."   
             ),
             kind="read",
             fn=summarize_dataframe_tool,
@@ -259,11 +279,8 @@ if __name__ == "__main__":
         Tool(
             name="create_plotly_chart_tool",
             description=(
-                "Genera gráficos interactivos con Plotly a partir de un 'dataset_id' en memoria. "
-                "Soporta multilíneas, líneas, pie chart, barras horizontales/verticales (simples y apiladas) "
-                "y áreas. Permite configurar dimensiones, métricas, etiquetas, tooltips y un selector de "
-                "filtro interactivo. Exporta el archivo HTML resultante a la carpeta 'artifacts/'."
-                "Se recomienda usar esta tool para graficar la información previamente resumida."
+            "Genera y guarda un gráfico interactivo"
+            "(líneas, barras, pie, áreas) a partir de un 'dataset_id' en memoria."
             ),
             kind="local_write",
             fn=create_plotly_chart_tool,
@@ -278,7 +295,7 @@ if __name__ == "__main__":
         agent_run = run_basic_agent(
         client,
         system_prompt=system_prompt_content,
-        user_message="Consulta cuantos clientes hay en la empresa y luego decime",
+        user_message="Cuales son los 5 productos más vendidos en términos de cantidad y su valor total de ventas, agrupados por categoría de producto, y que además tengan un precio unitario mayor a 20. Además, quiero que me muestres un gráfico de barras con la cantidad vendida de cada uno de estos productos.",
         registry=registry,
         decide_next=decide_next,
         max_steps=8,
@@ -291,4 +308,4 @@ if __name__ == "__main__":
     finally:
         pool.close()
 
-    print(agent_run)  
+    #print(agent_run)  

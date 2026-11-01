@@ -650,9 +650,10 @@ class CreateChartSchema(BaseModel):
     )
 
 def execute_query_tool(
-    args: QuerySchema, context: ExecutionContext | None = None
+    args: QuerySchema | dict[str, Any], context: ExecutionContext | None = None
 ) -> ToolResult:
-    query = args.query if isinstance(args, QuerySchema) else args.get("query", "")
+    params = QuerySchema.model_validate(args)
+    query = params.query
 
     try:
         with pool.connection() as conn:
@@ -662,19 +663,41 @@ def execute_query_tool(
                 columnas = [desc[0] for desc in cur.description]
                 df = pd.DataFrame(filas, columns=columnas)
 
-        # 1. Guardar en el DataStore desacoplado
+        # 1. Guardar el DataFrame completo en el DataStore desacoplado
         dataset_id = "ds_ephemeral"
         if context is not None and hasattr(context, "store"):
             dataset_id = context.store.add(df=df, query=query)
 
-        # 2. Preview de 10 filas
-        top_10 = df.head(10).to_dict(orient="records")
+        total_rows = len(df)
+        THRESHOLD_ROWS = 10
 
-        # 3. Respuesta para la observación del LLM
-        payload = {
-            "dataset_id": dataset_id,
-            "total_rows": len(df),
-            "columns": columnas
+        # 2. Lógica híbrida basada en volumen de filas
+        if total_rows <= THRESHOLD_ROWS:
+            payload = {
+                "dataset_id": dataset_id,
+                "total_rows": total_rows,
+                "columns": columnas,
+                "data": df.to_dict(orient="records"),
+                "status": "complete_data",
+                "message": (
+                    f"Consulta ejecutada. El resultado tiene {total_rows} filas (<= {THRESHOLD_ROWS}), "
+                    "por lo que se incluye la data completa. Puedes responder directamente o "
+                    f"usar 'create_plotly_chart_tool' con dataset_id='{dataset_id}' si se requirió un gráfico."
+                ),
+            }
+        else:
+            payload = {
+                "dataset_id": dataset_id,
+                "total_rows": total_rows,
+                "columns": columnas,
+                "status": "metadata_only",
+                "message": (
+                    f"Consulta ejecutada. El dataset contiene {total_rows} filas (> {THRESHOLD_ROWS}). "
+                    f"Quedó guardado en memoria con ID '{dataset_id}'. "
+                    "Para ver datos agregados sin saturar el contexto, "
+                    f"utiliza 'summarize_dataframe_tool' con dataset_id='{dataset_id}'. "
+                    f"Si debes graficar, también puedes pasar dataset_id='{dataset_id}' a 'create_plotly_chart_tool'."
+                ),
             }
 
         return ToolResult(
@@ -682,9 +705,10 @@ def execute_query_tool(
             content=json.dumps(payload, default=str),
             metadata={
                 "dataset_id": dataset_id,
-                "total_rows_fetched": len(df),
+                "total_rows_fetched": total_rows,
                 "columns": columnas,
                 "name": "execute_query_tool",
+                "status": payload["status"],
             },
         )
 
@@ -692,8 +716,10 @@ def execute_query_tool(
         return ToolResult(
             ok=False,
             content=f"Error al ejecutar la consulta: {e}",
-            metadata={"error_type": type(e).__name__,
-                      "name": "execute_query_tool"},
+            metadata={
+                "error_type": type(e).__name__,
+                "name": "execute_query_tool",
+            },
         )
 
 def summarize_dataframe_tool(
@@ -1134,6 +1160,7 @@ def create_plotly_chart_tool(
             hoverlabel=dict(
                 bgcolor="rgba(255, 255, 255, 0.95)",
                 font_size=13,
+                font_color="#111827",
                 font_family="Arial, sans-serif",
                 bordercolor="#d1d5db",
             ),

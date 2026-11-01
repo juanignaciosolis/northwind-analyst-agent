@@ -1,5 +1,7 @@
+from importlib.resources import contents
 import logging
 from logging import Logger
+from urllib import response
 
 logger: Logger = logging.getLogger(__name__)
 
@@ -75,13 +77,15 @@ class GeminiClient:
             max_output_tokens = max_output_tokens,
             tools= [tool_config],
             automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                disable=True)
+                disable=True),
+            thinking_config=types.ThinkingConfig(thinking_budget=0)
                 )
 
         return types.GenerateContentConfig(
             system_instruction=system,
             temperature=temperature_validator(temperature),
-            max_output_tokens = max_output_tokens
+            max_output_tokens = max_output_tokens,
+            thinking_config=types.ThinkingConfig(thinking_budget=0)
         )
 
     @staticmethod
@@ -89,17 +93,6 @@ class GeminiClient:
         prompt: str,
         tool_results: list[ToolResult] | None = None,
     ) -> list[types.Content]:
-        """
-        Construye la secuencia de turnos requerida por Gemini:
-        1. Turno 'user': prompt inicial.
-        2. Si hay tool_results:
-           - Turno 'model': function_call simulado para cada tool.
-           - Turno 'user': function_response con el contenido del ToolResult.
-        """
-        if not tool_results:
-            return prompt
-        
-        # 1. Turno inicial del usuario
         contents: list[types.Content] = [
             types.Content(
                 role="user",
@@ -107,43 +100,41 @@ class GeminiClient:
             )
         ]
 
-        # 2. Si hay resultados de herramientas, construir la pareja llamada-respuesta
-        if tool_results:
-            model_calls: list[types.Part] = []
-            user_responses: list[types.Part] = []
+        if not tool_results:
+            return contents
 
-            for tr in tool_results:
-                tool_name = tr.metadata.get("name")
-                if not tool_name:
-                    raise ValueError(
-                        "ToolResult requiere el campo 'name' dentro de metadata"
-                    )
-
-                # Argumentos usados (si se guardaron en metadata)
-                tool_args = tr.metadata.get("arguments", {})
-
-                # Invocación previa requerida por la API
-                model_calls.append(
-                    types.Part.from_function_call(
-                        name=tool_name,
-                        args=tool_args,
+        for tr in tool_results:
+            tool_name = tr.metadata.get("name")
+            tool_args = tr.metadata.get("arguments", {})
+            original_content = tr.metadata.get("model_content")
+            
+            if original_content is not None:
+                # Usamos el Content exacto devuelto por Google (role='model' y thought_signature intactos)
+                contents.append(original_content)
+            else:
+                # Fallback sintético si no viniera de Gemini
+                contents.append(
+                    types.Content(
+                        role="model",
+                        parts=[types.Part.from_function_call(name=tool_name, args=tool_args)],
                     )
                 )
 
-                # Salida devuelta al modelo
-                user_responses.append(
-                    types.Part.from_function_response(
-                        name=tool_name,
-                        response={
-                            "ok": tr.ok,
-                            "content": tr.content,
-                            "metadata": tr.metadata,
-                        },
-                    )
+            contents.append(
+                types.Content(
+                    role="tool",
+                    parts=[
+                        types.Part.from_function_response(
+                            name=tool_name,
+                            response={
+                                "ok": tr.ok,
+                                "content": tr.content,
+                                "metadata": tr.metadata,
+                            },
+                        )
+                    ],
                 )
-
-            contents.append(types.Content(role="model", parts=model_calls))
-            contents.append(types.Content(role="user", parts=user_responses))
+            )
 
         return contents
 
@@ -160,6 +151,10 @@ class GeminiClient:
         
         input_tokens, output_tokens = self._usage(response)
 
+        candidate_content = (
+            response.candidates[0].content if response.candidates else None
+        )
+
         function_call = None
         for part in response.candidates[0].content.parts:
             if getattr(part, "function_call", None):
@@ -172,6 +167,7 @@ class GeminiClient:
             executed=True,
             tool_name= None,
             tool_arguments= None,
+            model_content=candidate_content,
             model=self.model,
             provider="gemini",
             latency=round((time.perf_counter() - started) * 1000, 2),
@@ -186,13 +182,14 @@ class GeminiClient:
             executed= True,
             tool_name= function_call.name,
             tool_arguments= function_call.args,
+            model_content=candidate_content,
             model=self.model,
             provider="gemini",
             latency=round((time.perf_counter() - started) * 1000, 2),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             total_tokens= input_tokens + output_tokens
-        )
+            )
 
     #@auditar_tokenomics
     @retry_backoff(3,0.3)

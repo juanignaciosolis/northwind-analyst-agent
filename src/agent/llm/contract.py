@@ -18,7 +18,7 @@ class GenerationResult:
     tool_name: str
     tool_arguments: dict[str,Any]
     final_text: str = None
-
+    model_content: Any = None
 
     def to_dict(self) -> dict:
         return asdict(self)

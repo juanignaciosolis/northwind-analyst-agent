@@ -59,7 +59,7 @@ class GeminiClient:
             system_instruction=system,
             temperature=temperature_validator(temperature),
             max_output_tokens = max_output_tokens,
-            response_schema=SQLAnswer | InvalidAnswerScheme 
+            response_schema=SQLAnswer | InvalidAnswerScheme
         )
 
     @staticmethod
