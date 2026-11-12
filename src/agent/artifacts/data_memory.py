@@ -34,21 +34,3 @@ class InMemoryDataStore:
     def list_ids(self) -> list[str]:
         """Devuelve los IDs disponibles en el almacén."""
         return list(self._storage.keys())
-
-
-class ExecutionContext(BaseModel):
-    """Contexto confiable construido por la aplicación."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    user_id: str
-    role: Any
-    workspace_ids: list[str] = Field(default_factory=list)
-    allow_drafts: bool = False
-    allow_external_writes: bool = False
-    run_id: str = "run-local"
-
-    # Artefacto en memoria excluido de serialización para no romper logs ni trazas
-    store: InMemoryDataStore = Field(
-        default_factory=InMemoryDataStore, exclude=True
-    )
