@@ -8,7 +8,7 @@ import time
 import asyncio
 from typing import AsyncIterator
 import json
-
+import tiktoken
 
 from .contract import GenerationResult
 from src.utils.validators import temperature_validator,message_validator
@@ -23,7 +23,7 @@ from src.utils.errors import (ProviderConfigurationError,
                               InvalidProviderResponseError,
                               InvalidRequestError)
 
-from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, pool, ToolResult
+from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, ToolResult
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.settings import settings
 
@@ -157,6 +157,22 @@ class OpenAIClient:
             final_text=response.output_text,
         )
 
+    def count_tokens(self, text: str) -> int:
+            """Calcula el número exacto de tokens usando tiktoken de forma local."""
+            text = str(text)
+            if not text:
+                return 0
+            try:
+                encoding = tiktoken.encoding_for_model(self.model)
+            except ImportError as exc:
+                raise ProviderConfigurationError("La librería 'tiktoken' es requerida para OpenAI.") from exc               
+            except KeyError:
+                # Fallback a un codificador genérico (ej. cl100k_base usado por GPT-4/GPT-3.5)
+                # si el modelo específico no se encuentra en el registro de tiktoken
+                encoding = tiktoken.get_encoding("cl100k_base")
+
+            return len(encoding.encode(text))
+
     @retry_backoff(3,0.3)
     def generate(self, prompt: str,
                   *, system: str | None = None, 
@@ -281,5 +297,3 @@ if __name__ == "__main__":
     respuesta = client.generate(prompt= prompt, system = system_prompt_content, available_tools= function_declarations)
 
     print("\n\n","RESPUESTA:\n",respuesta)
-    
-    pool.close()

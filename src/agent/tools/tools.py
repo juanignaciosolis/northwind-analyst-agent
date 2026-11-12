@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 from time import perf_counter, sleep
 from typing import Any, Callable, Literal
 from pydantic import BaseModel, ConfigDict, Field
-from src.utils.database import pool
+from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 import pandas as pd
 import uuid
@@ -48,6 +48,8 @@ class ExecutionContext(BaseModel):
     allow_drafts: bool = False
     allow_external_writes: bool = False
     run_id: str = "run-local"
+
+    db_pool: ConnectionPool | None = Field(default=None, exclude=True)
 
     # Artefacto en memoria excluido de serialización para no romper logs ni trazas
     store: InMemoryDataStore = Field(
@@ -652,11 +654,19 @@ class CreateChartSchema(BaseModel):
 def execute_query_tool(
     args: QuerySchema | dict[str, Any], context: ExecutionContext | None = None
 ) -> ToolResult:
+
+    if context is None or context.db_pool is None:
+        return ToolResult(
+            ok=False,
+            content="Error crítico: No hay un pool de base de datos configurado en el contexto.",
+            metadata={"error_type": "NoDatabasePoolError", "name": "execute_query_tool"}
+        )
+    
     params = QuerySchema.model_validate(args)
     query = params.query
 
     try:
-        with pool.connection() as conn:
+        with context.db_pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(query)
                 filas = cur.fetchall()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import json
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -13,7 +14,9 @@ from src.prompts.system_prompt import agent_system_prompt, zero_shot_system_prom
 from src.settings import settings
 from src.agent.llm import build_provider
 from src.agent.llm.contract import LLMProvider
-from src.utils.database import pool
+from contextlib import contextmanager
+from src.utils.database import create_db_pool
+
 
 class AgentDecision(BaseModel):
     """Representa la decisión del modelo/router para el próximo paso."""
@@ -89,6 +92,27 @@ def sanitize_for_trace(value):
     if isinstance(value, list):
         return [sanitize_for_trace(item) for item in value]
     return value
+
+
+@contextmanager
+def agent_session(user_id: str, role: str, allow_drafts: bool = True, allow_external_writes: bool =False):
+    """Administrador de contexto que gestiona la infraestructura de la sesión."""
+    db_pool = create_db_pool()
+    try:
+        context = ExecutionContext(
+            user_id=user_id,
+            role=role,
+            workspace_ids=["support-ops"],
+            allow_drafts=allow_drafts,
+            allow_external_writes=allow_external_writes,
+            run_id=f"run-{user_id}",
+            db_pool=db_pool  # Inyección automática al contexto
+        )
+        yield context
+    finally:
+            # ConnectionPool de psycopg_pool solo usa close()
+            if db_pool:
+                db_pool.close()
 
 def run_basic_agent(
     client: LLMProvider,
@@ -221,23 +245,6 @@ if __name__ == "__main__":
     registry = ToolRegistry()
     policy = ToolPolicy()
 
-    viewer_context = ExecutionContext(
-        user_id="viewer-demo",
-        role="viewer",
-        workspace_ids=["support-ops"],
-        allow_drafts=False,
-        allow_external_writes=False,
-        run_id="c9-viewer-demo",
-    )
-
-    support_agent_context = ExecutionContext(
-        user_id="support-agent-demo",
-        role="support_agent",
-        workspace_ids=["support-ops"],
-        allow_drafts=True,
-        allow_external_writes=False,
-        run_id="c9-support-agent-demo",
-    )
 
     registry.register(
         Tool(
@@ -291,21 +298,19 @@ if __name__ == "__main__":
             idempotent=False,
         )
     )
-    try:
-        agent_run = run_basic_agent(
-        client,
-        system_prompt=system_prompt_content,
-        user_message="Cuales son los 5 productos más vendidos en términos de cantidad y su valor total de ventas, agrupados por categoría de producto, y que además tengan un precio unitario mayor a 20. Además, quiero que me muestres un gráfico de barras con la cantidad vendida de cada uno de estos productos.",
-        registry=registry,
-        decide_next=decide_next,
-        max_steps=8,
-        max_seconds=300,
-        context=support_agent_context,
-        policy=policy,
-        max_tool_calls=4,
-        )
-    
-    finally:
-        pool.close()
 
-    #print(agent_run)  
+    with agent_session(user_id="support-agent-demo", role="support_agent") as support_agent_context:
+            agent_run = run_basic_agent(
+                client,
+                system_prompt=system_prompt_content,
+                user_message="Dame un grafico sobre la participacion de ventas por cada estado",
+                registry=registry,
+                decide_next=decide_next,
+                max_steps=8,
+                max_seconds=300,
+                context=support_agent_context,
+                policy=policy,
+                max_tool_calls=4,
+            )
+            #print("\n=== RESULTADO FINAL DEL AGENTE ===")
+            #print(json.dumps(agent_run, indent=2, ensure_ascii=False, default=str))

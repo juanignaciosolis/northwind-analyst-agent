@@ -25,7 +25,7 @@ from src.utils.errors import (ProviderConfigurationError,
                               ProviderTimeoutError, 
                               TransientProviderError,
                               InvalidRequestError)
-from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, pool, ToolResult
+from src.agent.tools.tools import ToolRegistry, ToolPolicy, Tool, QuerySchema, execute_query_tool, ExecutionContext, ToolResult
 from src.prompts.system_prompt import zero_shot_system_prompt, few_shot_system_prompt
 from src.settings import settings
 
@@ -191,6 +191,23 @@ class GeminiClient:
             total_tokens= input_tokens + output_tokens
             )
 
+    def count_tokens(self, text: str) -> int:
+            """Calcula el número exacto de tokens usando el método oficial de la SDK de Google."""
+            text = str(text)
+            if not text:
+                return 0
+                
+            try:
+                response = self.client.models.count_tokens(
+                    model=self.model,
+                    contents=text
+                )
+                return response.total_tokens
+            except Exception as exc:
+                # Puedes usar tu mapeador de excepciones existente si lo deseas
+                mapped_exc = self._map_exception(exc)
+                raise mapped_exc from exc
+
     #@auditar_tokenomics
     @retry_backoff(3,0.3)
     def generate(self, prompt: str,
@@ -306,8 +323,6 @@ if __name__ == "__main__":
 
     prompt = "Dame las ventas por cliente"
 
-    try:
-        respuesta = client.generate(prompt= prompt, system = system_prompt_content, available_tools= function_declarations)
-        print("\n\n","RESPUESTA:\n",respuesta)
-    finally:
-        pool.close()
+
+    respuesta = client.generate(prompt= prompt, system = system_prompt_content, available_tools= function_declarations)
+    print("\n\n","RESPUESTA:\n",respuesta)

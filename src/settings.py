@@ -107,7 +107,9 @@ settings = Settings()
 
 if __name__ == "__main__":
 
+    print("Buscando .env en:", BASE_DIR / ".env", "Existe:", (BASE_DIR / ".env").exists())
     print(settings.db_user)
+    print(settings.default_provider)
     print(settings.gemini_api_key)
     print(settings.safe_dict())
     print(settings.api_key_value())

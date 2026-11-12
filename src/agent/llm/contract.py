@@ -27,6 +27,10 @@ class GenerationResult:
 
 class LLMProvider(Protocol):
 
+    def count_tokens(self, 
+                     text: str) -> int:
+        ...
+
     def generate(
         self,
         prompt: str,
