@@ -5,6 +5,8 @@ from pathlib import Path
 import re
 from typing import Any
 import json
+from rich.console import Console
+from rich.markdown import Markdown
 
 import yaml
 
@@ -224,8 +226,12 @@ class SkillLoader:
 
 if __name__ == "__main__":
 
+    console = Console()
+
     skill = SkillLoader(SKILL_DIR)
     skill.reset_trace()
     print(json.dumps(skill.list_summaries(), indent=2, ensure_ascii=False))
-    print(json.dumps(skill.load("northwind-dw-analytics"), indent=2, ensure_ascii=False))
-    print(json.dumps(skill.load_resource("northwind-dw-analytics", "references/dw-star-schema.md"), indent=2, ensure_ascii=False))
+    instrucciones = skill.load("northwind-dw-analytics")["instructions"]
+    console.print(Markdown(instrucciones))
+    reference = skill.load_resource("northwind-dw-analytics", "references/dw-star-schema.md")
+    console.print(Markdown(reference))

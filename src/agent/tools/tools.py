@@ -1221,6 +1221,25 @@ def create_plotly_chart_tool(
                       "name": "create_plotly_chart_tool"},
         )
 
+
+class LoadSkillSchema(BaseModel):
+    skill_name: str = Field(
+        ...,
+        description="Nombre exacto de la skill a cargar (ej: 'northwind-analytics')."
+    )
+
+class LoadResourceSchema(BaseModel):
+    skill_name: str = Field(
+        ...,
+        description="Nombre exacto de la skill dueña del recurso."
+    )
+    relative_path: str = Field(
+        ...,
+        description="Ruta relativa del recurso dentro de la skill (ej: 'references/dw-star-schema.md')."
+    )
+
+
+
 if __name__ == "__main__":
 
     def show_tool_result(step_name: str, result: ToolResult) -> None:
