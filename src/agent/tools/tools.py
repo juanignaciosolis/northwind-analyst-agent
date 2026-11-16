@@ -19,6 +19,8 @@ import inspect
 from pydantic import BaseModel, Field, ValidationError
 
 from src.agent.artifacts.data_memory import InMemoryDataStore
+from src.agent.skills.skills import SkillLoader
+from src.utils.database import create_db_pool
 
 
 ToolKind = Literal[
@@ -50,6 +52,8 @@ class ExecutionContext(BaseModel):
     run_id: str = "run-local"
 
     db_pool: ConnectionPool | None = Field(default=None, exclude=True)
+
+    skill_loaders: list[SkillLoader] = Field(default_factory=list, exclude=True)
 
     # Artefacto en memoria excluido de serialización para no romper logs ni trazas
     store: InMemoryDataStore = Field(
@@ -1228,6 +1232,13 @@ class LoadSkillSchema(BaseModel):
         description="Nombre exacto de la skill a cargar (ej: 'northwind-analytics')."
     )
 
+    reason: str = Field(
+        ...,
+        min_length=10,
+        max_length=150,
+        description="Breve explicación de por qué se requiere cargar esta skill en este momento del flujo."
+    )
+
 class LoadResourceSchema(BaseModel):
     skill_name: str = Field(
         ...,
@@ -1238,9 +1249,121 @@ class LoadResourceSchema(BaseModel):
         description="Ruta relativa del recurso dentro de la skill (ej: 'references/dw-star-schema.md')."
     )
 
+    reason: str = Field(
+        ...,
+        min_length=10,
+        max_length=150,
+        description="Breve explicación de por qué se necesita leer este recurso de referencia en este paso."
+    )
+
+
+def load_skill_instructions_tool(
+    args: LoadSkillSchema | dict[str, Any], 
+    context: ExecutionContext | None = None
+) -> ToolResult:
+    """Carga únicamente el cuerpo de instrucciones de una Agent Skill buscando en los loaders configurados."""
+    params = LoadSkillSchema.model_validate(args)
+    
+    try:
+        loaders = getattr(context, "skill_loaders", [])
+        if not loaders:
+            return ToolResult(
+                ok=False,
+                content="Error crítico: No hay skill_loaders configurados en el contexto de ejecución.",
+                metadata={"error_type": "NoSkillLoadersError", "name": "load_skill_instructions_tool"}
+            )
+
+        skill_data = None
+        # Iteramos sobre la lista de loaders para encontrar la skill
+        for loader in loaders:
+            try:
+                skill_data = loader.load(params.skill_name)
+                break  # Si la encuentra y carga con éxito, salimos del ciclo
+            except (ValueError, FileNotFoundError):
+                continue  # Si no está en este loader, probamos con el siguiente
+
+        if not skill_data:
+            return ToolResult(
+                ok=False,
+                content=f"Skill '{params.skill_name}' no encontrada en ninguno de los loaders disponibles.",
+                metadata={"error_type": "SkillNotFoundError", "name": "load_skill_instructions_tool"}
+            )
+
+        instructions_text = skill_data.get("instructions", "")
+
+        return ToolResult(
+            ok=True,
+            content=instructions_text,
+            metadata={
+                "name": "load_skill_instructions_tool",
+                "skill": params.skill_name,
+                "status": "success"
+            }
+        )
+
+    except Exception as e:
+        return ToolResult(
+            ok=False,
+            content=f"Error al cargar la skill '{params.skill_name}': {e}",
+            metadata={"error_type": type(e).__name__, "name": "load_skill_instructions_tool"}
+        )
+
+
+def load_skill_reference_tool(
+    args: LoadResourceSchema | dict[str, Any], 
+    context: ExecutionContext | None = None
+) -> ToolResult:
+    """Lee y devuelve únicamente el contenido de un recurso buscando en los loaders configurados."""
+    params = LoadResourceSchema.model_validate(args)
+
+    try:
+        loaders = getattr(context, "skill_loaders", [])
+        if not loaders:
+            return ToolResult(
+                ok=False,
+                content="Error crítico: No hay skill_loaders configurados en el contexto de ejecución.",
+                metadata={"error_type": "NoSkillLoadersError", "name": "load_skill_reference_tool"}
+            )
+
+        content_text = None
+        # Iteramos sobre la lista de loaders para encontrar el recurso
+        for loader in loaders:
+            try:
+                content_text = loader.load_resource(params.skill_name, params.relative_path)
+                break  # Si lo encuentra, salimos del ciclo
+            except (ValueError, FileNotFoundError):
+                continue  # Si no está en este loader, probamos con el siguiente
+
+        if content_text is None:
+            return ToolResult(
+                ok=False,
+                content=f"Recurso '{params.relative_path}' de la skill '{params.skill_name}' no encontrado en ningún loader.",
+                metadata={"error_type": "ResourceNotFoundError", "name": "load_skill_reference_tool"}
+            )
+
+        return ToolResult(
+            ok=True,
+            content=content_text,
+            metadata={
+                "name": "load_skill_reference_tool",
+                "skill": params.skill_name,
+                "resource": params.relative_path,
+                "status": "success"
+            }
+        )
+
+    except Exception as e:
+        return ToolResult(
+            ok=False,
+            content=f"Error al leer el recurso '{params.relative_path}' de la skill '{params.skill_name}': {e}",
+            metadata={"error_type": type(e).__name__, "name": "load_skill_reference_tool"}
+        )
+
 
 
 if __name__ == "__main__":
+
+    SKILL_ROOT_PATH = Path(__file__).resolve().parent.parent / "skills"
 
     def show_tool_result(step_name: str, result: ToolResult) -> None:
         """Imprime el resultado formateado sin romper si el contenido es un mensaje de error plano."""
@@ -1257,6 +1380,11 @@ if __name__ == "__main__":
 
     registry = ToolRegistry()
     policy = ToolPolicy()
+    northwind_dw_analytics = SkillLoader(SKILL_ROOT_PATH)
+
+    print(SKILL_ROOT_PATH)
+
+    db_pool = create_db_pool()
 
     viewer_context = ExecutionContext(
         user_id="viewer-demo",
@@ -1265,6 +1393,8 @@ if __name__ == "__main__":
         allow_drafts=False,
         allow_external_writes=False,
         run_id="c9-viewer-demo",
+        skill_loaders=[northwind_dw_analytics],
+        db_pool= db_pool
     )
 
     support_agent_context = ExecutionContext(
@@ -1274,6 +1404,8 @@ if __name__ == "__main__":
         allow_drafts=True,
         allow_external_writes=False,
         run_id="c9-support-agent-demo",
+        skill_loaders=[northwind_dw_analytics],
+        db_pool= db_pool
     )
 
     registry.register(
@@ -1331,10 +1463,42 @@ if __name__ == "__main__":
         )
     )
 
+
+    registry.register(
+    Tool(
+        name="load_skill_instructions_tool",
+        description="Carga las instrucciones operativas y flujos de una Agent Skill a partir de su nombre exacto.",
+        kind="read",
+        fn=load_skill_instructions_tool,
+        args_model=LoadSkillSchema,
+        timeout_s=10.0,
+        retries=0,
+        backoff_s=0.05,
+        idempotent=True,
+    )
+)
+
+    registry.register(
+        Tool(
+            name="load_skill_reference_tool",
+            description="Lee un archivo complementario de referencia o esquema técnico asociado a una skill.",
+            kind="read",
+            fn=load_skill_reference_tool,
+            args_model=LoadResourceSchema,
+            timeout_s=10.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
+    )
+
+
+    # =========================================================================
+    # 1. Probar execute_query_tool
+    # =========================================================================
+    
+
     try:
-        # =========================================================================
-        # 1. Probar execute_query_tool
-        # =========================================================================
         call_query = ToolCall(
             tool_name="execute_query_tool",
             arguments={
@@ -1368,76 +1532,118 @@ if __name__ == "__main__":
             raise RuntimeError(
                 f"Fallo en execute_query_tool: {result_query.content}"
             )
-
-        dataset_id = json.loads(result_query.content)["dataset_id"]
-
-        # =========================================================================
-        # 2. Probar summarize_dataframe_tool
-        # =========================================================================
-        call_summary = ToolCall(
-            tool_name="summarize_dataframe_tool",
-            arguments={
-                "dataset_id": dataset_id,
-                "group_by": ["País del cliente"],
-                "aggregations": [
-                    {
-                        "column": "Ventas",
-                        "agg": "sum",
-                        "alias": "Ventas_Totales",
-                    },
-                    {
-                        "column": "País del proveedor",
-                        "agg": "nunique",
-                        "alias": "Proveedores_Unicos",
-                    },
-                ],
-                "sort_by": "Ventas_Totales",
-                "ascending": False,
-                "limit": 5,
-            },
-        )
-
-        result_summary = registry.run(
-            call_summary,
-            context=support_agent_context,
-            policy=policy,
-        )
-        show_tool_result(
-            f"[2/3] summarize_dataframe_tool sobre '{dataset_id}'",
-            result_summary,
-        )
-
-        if not result_summary.ok:
-            raise RuntimeError(
-                f"Fallo en summarize_dataframe_tool: {result_summary.content}"
-            )
-
-        # =========================================================================
-        # 3. Probar create_plotly_chart_tool
-        # =========================================================================
-        call_chart = ToolCall(
-            tool_name="create_plotly_chart_tool",
-            arguments={
-                "dataset_id": dataset_id,
-                "chart_type": "column bar",
-                "dimensions": ["País del cliente"],
-                "metrics": ["Ventas"],
-                "filter_column": "Año",
-                "hover_columns": ["País del proveedor"],
-                "title": "Ventas por País del Cliente con Filtro de Año",
-                "x_label": "País del Cliente",
-                "y_label": "Monto Total de Ventas",
-            },
-        )
-
-        result_chart = registry.run(
-            call_chart,
-            context=support_agent_context,
-            policy=policy,
-        )
-        show_tool_result(
-            f"[3/3] create_plotly_chart_tool sobre '{dataset_id}'", result_chart
-        )
-
     finally:
-        pool.close()
+        db_pool.close()
+
+    dataset_id = json.loads(result_query.content)["dataset_id"]
+
+    # =========================================================================
+    # 2. Probar summarize_dataframe_tool
+    # =========================================================================
+    call_summary = ToolCall(
+        tool_name="summarize_dataframe_tool",
+        arguments={
+            "dataset_id": dataset_id,
+            "group_by": ["País del cliente"],
+            "aggregations": [
+                {
+                    "column": "Ventas",
+                    "agg": "sum",
+                    "alias": "Ventas_Totales",
+                },
+                {
+                    "column": "País del proveedor",
+                    "agg": "nunique",
+                    "alias": "Proveedores_Unicos",
+                },
+            ],
+            "sort_by": "Ventas_Totales",
+            "ascending": False,
+            "limit": 5,
+        },
+    )
+
+    result_summary = registry.run(
+        call_summary,
+        context=support_agent_context,
+        policy=policy,
+    )
+    show_tool_result(
+        f"[2/3] summarize_dataframe_tool sobre '{dataset_id}'",
+        result_summary,
+    )
+
+    if not result_summary.ok:
+        raise RuntimeError(
+            f"Fallo en summarize_dataframe_tool: {result_summary.content}"
+        )
+
+    # =========================================================================
+    # 3. Probar create_plotly_chart_tool
+    # =========================================================================
+    call_chart = ToolCall(
+        tool_name="create_plotly_chart_tool",
+        arguments={
+            "dataset_id": dataset_id,
+            "chart_type": "column bar",
+            "dimensions": ["País del cliente"],
+            "metrics": ["Ventas"],
+            "filter_column": "Año",
+            "hover_columns": ["País del proveedor"],
+            "title": "Ventas por País del Cliente con Filtro de Año",
+            "x_label": "País del Cliente",
+            "y_label": "Monto Total de Ventas",
+        },
+    )
+
+    result_chart = registry.run(
+        call_chart,
+        context=support_agent_context,
+        policy=policy,
+    )
+    show_tool_result(
+        f"[3/3] create_plotly_chart_tool sobre '{dataset_id}'", result_chart
+    )
+
+    # =========================================================================
+    # 4. Probar load_skill_instructions_tool
+    # =========================================================================
+    call_skill = ToolCall(
+        tool_name="load_skill_instructions_tool",
+        arguments={
+            "skill_name": "northwind-dw-analytics",
+            "reason": "Necesito consultar las instrucciones operativas para guiar el flujo analítico.",
+        },
+    )
+
+    result_skill = registry.run(
+        call_skill,
+        context=support_agent_context,
+        policy=policy,
+    )
+    show_tool_result(
+        "[4/4] load_skill_instructions_tool sobre 'northwind-dw-analytics'", 
+        result_skill
+    )
+
+    # =========================================================================
+    # 5. Probar load_skill_reference_tool
+    # =========================================================================
+    call_ref = ToolCall(
+        tool_name="load_skill_reference_tool",
+        arguments={
+            "skill_name": "northwind-dw-analytics",
+            "relative_path": "references/dw-star-schema.md",
+            "reason": "Necesito verificar las reglas dimensionales y el esquema estrella en PostgreSQL.",
+        },
+    )
+
+    result_ref = registry.run(
+        call_ref,
+        context=support_agent_context,
+        policy=policy,
+    )
+    show_tool_result(
+        "[4/4] load_skill_reference_tool sobre 'references/dw-star-schema.md'", 
+        result_ref
+    )

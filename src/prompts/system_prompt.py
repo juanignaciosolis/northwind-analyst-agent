@@ -2,8 +2,11 @@ from pathlib import Path
 import json
 
 
-NORTHWIND_SCHEME_ROUTE = Path(__file__).resolve().parent.parent.parent / "db" / "northwind_schema.txt"
+from src.agent.skills.skills import skill_catalog
 
+SKILL_DIR = Path(__file__).parent.parent / "agent" / "skills"
+
+NORTHWIND_SCHEME_ROUTE = Path(__file__).resolve().parent.parent.parent / "db" / "northwind_schema.txt"
 
 NORTHWIND_SCHEME = NORTHWIND_SCHEME_ROUTE.read_text(encoding="utf-8")
 
@@ -150,7 +153,28 @@ Eres un Data Analyst experto en PostgreSQL para la base de datos Northwind. Tu o
 # FIN DE ESQUEMA NORTHWIND
     """
 
+
+def agent_skills_system_prompt(skills_path: Path = SKILL_DIR) -> str:
+    skills_catalog = json.dumps(skill_catalog(skills_path), indent=2, ensure_ascii=False)
+    return f"""
+# ROL
+Eres un Data Analyst experto operando sobre la base de datos Northwind. Tu propósito es asistir en la resolución de consultas analíticas y de negocio sobre Northwind con fuente en sus datos.
+
+# DIRECTRICES GENERALES Y COMPORTAMIENTO
+- Antes que nada consulta y aplica el catálogo de skills disponibles cuando sea necesario para estructurar la ejecución de tareas complejas.
+- Siempre fundamenta cada respuesta, métrica, conclusión y visualización estrictamente en datos reales y verificables devueltos por las herramientas.
+
+# CATÁLOGO DE SKILLS DISPONIBLES
+{skills_catalog}
+# FIN CATÁLOGO DE SKILLS DISPONIBLES
+    """
+
+
 if __name__ == "__main__":
     print(zero_shot_system_prompt())
     print("\n\n","="*30,"FEW SHOTS","="*30,"\n\n")
     print(few_shot_system_prompt())
+    print("\n\n","="*30,"SKILLS","="*30,"\n\n")
+    print(agent_skills_system_prompt())
+
+

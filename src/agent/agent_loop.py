@@ -3,14 +3,17 @@ from __future__ import annotations
 import time
 import json
 from typing import Any, Literal
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from src.agent.tools.tools import ToolResult
 from src.agent.tools.tools import ToolCall, Tool, ExecutionContext, ToolRegistry, ToolPolicy
 from src.agent.tools.tools import execute_query_tool, summarize_dataframe_tool, create_plotly_chart_tool
-from src.agent.tools.tools import QuerySchema, SummarizeSchema, CreateChartSchema
-from src.prompts.system_prompt import agent_system_prompt, zero_shot_system_prompt
+from src.agent.tools.tools import load_skill_instructions_tool, load_skill_reference_tool
+from src.agent.tools.tools import QuerySchema, SummarizeSchema, CreateChartSchema, LoadSkillSchema, LoadResourceSchema
+from src.agent.skills.skills import SkillLoader
+from src.prompts.system_prompt import agent_system_prompt, zero_shot_system_prompt, agent_skills_system_prompt
 from src.settings import settings
 from src.agent.llm import build_provider
 from src.agent.llm.contract import LLMProvider
@@ -95,7 +98,7 @@ def sanitize_for_trace(value):
 
 
 @contextmanager
-def agent_session(user_id: str, role: str, allow_drafts: bool = True, allow_external_writes: bool =False):
+def agent_session(user_id: str, role: str, allow_drafts: bool = True, allow_external_writes: bool =False, skill_loaders: list[SkillLoader] | None = None):
     """Administrador de contexto que gestiona la infraestructura de la sesión."""
     db_pool = create_db_pool()
     try:
@@ -106,6 +109,7 @@ def agent_session(user_id: str, role: str, allow_drafts: bool = True, allow_exte
             allow_drafts=allow_drafts,
             allow_external_writes=allow_external_writes,
             run_id=f"run-{user_id}",
+            skill_loaders= skill_loaders,
             db_pool=db_pool  # Inyección automática al contexto
         )
         yield context
@@ -238,7 +242,11 @@ def run_basic_agent(
 
 if __name__ == "__main__":
 
-    system_prompt_content = agent_system_prompt()
+    SKILL_DIR = Path(__file__).parent / "skills"
+
+    system_prompt_content = agent_skills_system_prompt()
+
+    northwind_dw_analytics = SkillLoader(SKILL_DIR)
     
     client = build_provider(settings)
     
@@ -250,14 +258,14 @@ if __name__ == "__main__":
         Tool(
             name="execute_query_tool",
             description=(
-            "Ejecuta consultas SQL SELECT en PostgreSQL y guarda el resultado en memoria. "
+            "Ejecuta consultas SQL SELECT en Northwind DB y guarda el resultado en memoria. "
             "Devuelve un 'dataset_id' y los datos completos si son hasta 10 filas, o solo "
             "la metadata si es más extenso para luego resumir o graficar."
             ),
             kind="read",
             fn=execute_query_tool,
             args_model=QuerySchema,
-            timeout_s=300,
+            timeout_s=30000,
             retries=0,
             backoff_s=0.05,
             idempotent=True,
@@ -275,7 +283,7 @@ if __name__ == "__main__":
             kind="read",
             fn=summarize_dataframe_tool,
             args_model=SummarizeSchema,
-            timeout_s=300,
+            timeout_s=30000,
             retries=0,
             backoff_s=0.05,
             idempotent=True,
@@ -292,25 +300,55 @@ if __name__ == "__main__":
             kind="local_write",
             fn=create_plotly_chart_tool,
             args_model=CreateChartSchema,
-            timeout_s=300,
+            timeout_s=30000,
             retries=0,
             backoff_s=0.05,
             idempotent=False,
         )
     )
 
-    with agent_session(user_id="support-agent-demo", role="support_agent") as support_agent_context:
+    registry.register(
+    Tool(
+        name="load_skill_instructions_tool",
+        description="Carga las instrucciones operativas y flujos de una skill a partir de su nombre exacto.",
+        kind="read",
+        fn=load_skill_instructions_tool,
+        args_model=LoadSkillSchema,
+        timeout_s=300000,
+        retries=0,
+        backoff_s=0.05,
+        idempotent=True,
+    )
+)
+
+    registry.register(
+        Tool(
+            name="load_skill_reference_tool",
+            description="Lee un archivo complementario de referencia o esquema técnico asociado a una skill.",
+            kind="read",
+            fn=load_skill_reference_tool,
+            args_model=LoadResourceSchema,
+            timeout_s=30000,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
+    )
+
+    with agent_session(user_id="support-agent-demo", role="support_agent", skill_loaders=[northwind_dw_analytics]) as support_agent_context:
             agent_run = run_basic_agent(
                 client,
                 system_prompt=system_prompt_content,
-                user_message="Dame un grafico sobre la participacion de ventas por cada estado",
+                user_message="Como fue la evolucion mensual de mis ventas? indicame que meses aduvimos flojos y que meses nos fue bien",
                 registry=registry,
                 decide_next=decide_next,
                 max_steps=8,
-                max_seconds=300,
+                max_seconds=100000,
                 context=support_agent_context,
                 policy=policy,
                 max_tool_calls=4,
             )
             #print("\n=== RESULTADO FINAL DEL AGENTE ===")
             #print(json.dumps(agent_run, indent=2, ensure_ascii=False, default=str))
+
+            #"Como fue la evolucion mensual de mis ventas? indicame que meses aduvimos flojos y que meses nos fue bien"
