@@ -3,7 +3,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from time import perf_counter, sleep
 from typing import Any, Callable, Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing_extensions import Self
 from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 import pandas as pd
@@ -562,51 +563,42 @@ class QuerySchema(BaseModel):
         description="Consulta SQL de solo lectura a ejecutar contra la base de datos."
     )
 
-
-AggFunction = Literal[
-    "sum", "mean", "median", "min", "max", "count", "nunique"
-]
-
-
-class AggregationSpec(BaseModel):
-    column: str = Field(description="Columna sobre la cual calcular la métrica.")
-    agg: AggFunction = Field(description="Operación de agregación a aplicar.")
-    alias: str | None = Field(
-        default=None, description="Nombre de la columna resultante (opcional)."
-    )
-
-
 class SummarizeSchema(BaseModel):
     dataset_id: str | None = Field(
         default=None,
-        description="ID del dataset (ej: 'ds_a1b2c3d4'). Si se omite, opera sobre el último generado.",
-    )
-    group_by: list[str] | None = Field(
-        default=None,
-        description="Columnas categóricas para agrupar (ej: ['country', 'status']).",
-    )
-    aggregations: list[AggregationSpec] = Field(
-        default_factory=list,
-        description="Lista de métricas a calcular sobre columnas del dataset.",
+        description="ID del dataset. Si se omite, opera sobre el último generado.",
     )
     describe_numeric: bool = Field(
         default=False,
-        description="Si es True, calcula estadísticas descriptivas completas para columnas numéricas.",
-    )
-    limit: int = Field(
-        default=15,
-        ge=1,
-        le=50,
-        description="Límite de filas si se realiza un group_by.",
+        description="Devuelve estadísticas descriptivas globales (min, max, mean, median, etc).",
     )
     sort_by: str | None = Field(
         default=None,
-        description="Columna o alias para ordenar antes de truncar.",
+        description="Columna para ordenar los datos (opcional).",
     )
     ascending: bool = Field(
         default=False,
-        description="Dirección de la ordenación (False = descendente).",
+        description="Dirección de ordenación (False = Mayor a Menor; True = Menor a Mayor).",
     )
+    slice_start: int = Field(
+        default=0,
+        ge=0,
+        description="Índice de fila inicial (0-indexed).",
+    )
+    slice_end: int = Field(
+        default=10,
+        ge=1,
+        description="Índice de fila final. El máximo permitido es 30 filas de diferencia.",
+    )
+
+    @model_validator(mode='after')
+    def enforce_slice_limits(self, interval: int = 30) -> Self:
+        if self.slice_end <= self.slice_start:
+            raise ValueError("slice_end debe ser mayor a slice_start.")
+        # Clamp automático: si el LLM pide más de 30 filas, lo truncamos de forma segura
+        if (self.slice_end - self.slice_start) > interval:
+            self.slice_end = self.slice_start + interval
+        return self
 
 ChartType = Literal[
     "multilineas",
@@ -683,7 +675,7 @@ def execute_query_tool(
             dataset_id = context.store.add(df=df, query=query)
 
         total_rows = len(df)
-        THRESHOLD_ROWS = 10
+        THRESHOLD_ROWS = 24
 
         # 2. Lógica híbrida basada en volumen de filas
         if total_rows <= THRESHOLD_ROWS:
@@ -693,11 +685,7 @@ def execute_query_tool(
                 "columns": columnas,
                 "data": df.to_dict(orient="records"),
                 "status": "complete_data",
-                "message": (
-                    f"Consulta ejecutada. El resultado tiene {total_rows} filas (<= {THRESHOLD_ROWS}), "
-                    "por lo que se incluye la data completa. Puedes responder directamente o "
-                    f"usar 'create_plotly_chart_tool' con dataset_id='{dataset_id}' si se requirió un gráfico."
-                ),
+                "message": "Datos completos disponibles."
             }
         else:
             payload = {
@@ -706,11 +694,8 @@ def execute_query_tool(
                 "columns": columnas,
                 "status": "metadata_only",
                 "message": (
-                    f"Consulta ejecutada. El dataset contiene {total_rows} filas (> {THRESHOLD_ROWS}). "
-                    f"Quedó guardado en memoria con ID '{dataset_id}'. "
-                    "Para ver datos agregados sin saturar el contexto, "
-                    f"utiliza 'summarize_dataframe_tool' con dataset_id='{dataset_id}'. "
-                    f"Si debes graficar, también puedes pasar dataset_id='{dataset_id}' a 'create_plotly_chart_tool'."
+                    f"Dataset guardado en memoria. "
+                    f"Para ver estadísticas o filas específicas, usa 'summarize_dataframe_tool' con dataset_id='{dataset_id}'."
                 ),
             }
 
@@ -737,45 +722,43 @@ def execute_query_tool(
         )
 
 def summarize_dataframe_tool(
-    args: SummarizeSchema, context: ExecutionContext | None = None
+    args: SummarizeSchema | dict[str, Any], context: ExecutionContext | None = None
 ) -> ToolResult:
-
     args = SummarizeSchema.model_validate(args)
 
     if context is None or not hasattr(context, "store"):
         return ToolResult(
             ok=False,
             content="Error: No hay contexto de ejecución disponible.",
-            metadata={"error_type": "NoContextAvailable",
-                      "name": "summarize_dataframe_tool"},
+            metadata={"error_type": "NoContextAvailable", "name": "summarize_dataframe_tool"},
         )
 
-    # 1. Obtener DataFrame del almacén
-    df = context.store.get(args.dataset_id)
-    if df is None:
+    # Resolución inteligente del dataset
+    target_dataset_id = args.dataset_id
+    if target_dataset_id is None:
         valid_ids = context.store.list_ids()
+        if not valid_ids:
+            return ToolResult(ok=False, content="No hay datasets registrados en memoria.")
+        target_dataset_id = valid_ids[-1]
+
+    df = context.store.get(target_dataset_id)
+    if df is None:
         return ToolResult(
-            ok=False,
-            content=f"No se encontró el dataset '{args.dataset_id}'. IDs en memoria: {valid_ids}",
-            metadata={"error_type": "DatasetNotFound",
-                      "name": "summarize_dataframe_tool"},
+            ok=False, 
+            content=f"Dataset '{target_dataset_id}' no encontrado. IDs disponibles: {context.store.list_ids()}"
         )
 
     if df.empty:
-        return ToolResult(
-            ok=False,
-            content="El dataset solicitado está vacío (0 filas).",
-            metadata={"error_type": "EmptyDataframeError",
-                      "name": "summarize_dataframe_tool"},
-        )
+        return ToolResult(ok=False, content="El dataset está vacío (0 filas).")
 
     try:
         results: dict[str, Any] = {
-            "dataset_id": args.dataset_id or "latest",
-            "source_rows": len(df),
+            "dataset_id": target_dataset_id,
+            "source_total_rows": len(df),
+            "columns": list(df.columns),
         }
 
-        # 2. Estadísticas descriptivas numéricas
+        # 1. Estadísticas Descriptivas (Opcional)
         if args.describe_numeric:
             numeric_cols = df.select_dtypes(include=["number"])
             if not numeric_cols.empty:
@@ -783,106 +766,36 @@ def summarize_dataframe_tool(
                     numeric_cols.describe().T.round(2).to_dict(orient="index")
                 )
             else:
-                results["descriptive_statistics"] = (
-                    "No hay columnas numéricas en el dataset."
-                )
+                results["descriptive_statistics"] = "No hay columnas numéricas."
 
-        # 3. Agregaciones y agrupaciones
-        if args.aggregations:
-            cols_needed = [agg.column for agg in args.aggregations]
-            if args.group_by:
-                cols_needed.extend(args.group_by)
-
-            missing = [c for c in cols_needed if c not in df.columns]
-            if missing:
+        # 2. Ordenamiento (Opcional)
+        view_df = df.copy()
+        if args.sort_by:
+            if args.sort_by in view_df.columns:
+                view_df = view_df.sort_values(by=args.sort_by, ascending=args.ascending)
+            else:
                 return ToolResult(
                     ok=False,
-                    content=f"Columnas no encontradas en el dataset: {set(missing)}",
-                    metadata={"error_type": "ColumnNotFoundError",
-                              "name": "summarize_dataframe_tool"},
+                    content=f"La columna '{args.sort_by}' no existe. Válidas: {list(view_df.columns)}"
                 )
 
-            # Caso A: Group By
-            if args.group_by:
-                agg_dict: dict[str, list[str]] = {}
-                rename_map: dict[tuple[str, str], str] = {}
-
-                for agg in args.aggregations:
-                    agg_dict.setdefault(agg.column, []).append(agg.agg)
-                    if agg.alias:
-                        rename_map[(agg.column, agg.agg)] = agg.alias
-
-                grouped = df.groupby(args.group_by).agg(agg_dict)
-
-                if isinstance(grouped.columns, pd.MultiIndex):
-                    grouped.columns = [
-                        rename_map.get((c, f), f"{c}_{f}")
-                        for c, f in grouped.columns
-                    ]
-
-                grouped = grouped.reset_index()
-
-                if args.sort_by and args.sort_by in grouped.columns:
-                    grouped = grouped.sort_values(
-                        by=args.sort_by, ascending=args.ascending
-                    )
-
-                results["grouped_summary"] = {
-                    "group_by": args.group_by,
-                    "total_groups": len(grouped),
-                    "showing_top": min(len(grouped), args.limit),
-                    "data": grouped.head(args.limit).to_dict(orient="records"),
-                }
-
-            # Caso B: Agregación Global
-            else:
-                global_metrics: dict[str, Any] = {}
-                for agg in args.aggregations:
-                    series = df[agg.column]
-
-                    if agg.agg == "sum":
-                        val = series.sum()
-                    elif agg.agg == "mean":
-                        val = series.mean()
-                    elif agg.agg == "median":
-                        val = series.median()
-                    elif agg.agg == "min":
-                        val = series.min()
-                    elif agg.agg == "max":
-                        val = series.max()
-                    elif agg.agg == "count":
-                        val = series.count()
-                    elif agg.agg == "nunique":
-                        val = series.nunique()
-                    else:
-                        continue
-
-                    key = agg.alias if agg.alias else f"{agg.column}_{agg.agg}"
-                    global_metrics[key] = (
-                        round(float(val), 4)
-                        if isinstance(val, (int, float))
-                        else val
-                    )
-
-                results["global_metrics"] = global_metrics
+        # 3. Slicing (Cortar el dataframe)
+        # Pandas .iloc maneja muy bien si slice_end supera el tamaño real del dataframe
+        sliced_df = view_df.iloc[args.slice_start : args.slice_end]
+        
+        results["data_slice"] = {
+            "showing_rows": f"Desde índice {args.slice_start} hasta {args.slice_start + len(sliced_df)}",
+            "data": sliced_df.to_dict(orient="records")
+        }
 
         return ToolResult(
             ok=True,
-            content=json.dumps(results, default=str),
-            metadata={
-                "dataset_id": args.dataset_id,
-                "source_rows": len(df),
-                "name": "summarize_dataframe_tool",
-            },
+            content=json.dumps(results, default=str, ensure_ascii=False),
+            metadata={"dataset_id": target_dataset_id, "name": "summarize_dataframe_tool"},
         )
 
     except Exception as e:
-        return ToolResult(
-            ok=False,
-            content=f"Error durante el resumen analítico: {e}",
-            metadata={"error_type": type(e).__name__,
-                      "name": "summarize_dataframe_tool"},
-        )
+        return ToolResult(ok=False, content=f"Error inspeccionando el dataframe: {e}")
 
 
 def create_plotly_chart_tool(

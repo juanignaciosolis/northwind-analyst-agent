@@ -258,9 +258,8 @@ if __name__ == "__main__":
         Tool(
             name="execute_query_tool",
             description=(
-            "Ejecuta consultas SQL SELECT en Northwind DB y guarda el resultado en memoria. "
-            "Devuelve un 'dataset_id' y los datos completos si son hasta 10 filas, o solo "
-            "la metadata si es más extenso para luego resumir o graficar."
+                "Ejecuta consultas SQL SELECT y guarda el resultado en memoria. "
+                "Devuelve los datos completos si son pocas filas (<= 24) o un 'dataset_id' en modo 'metadata_only' si el volumen es mayor."
             ),
             kind="read",
             fn=execute_query_tool,
@@ -276,9 +275,8 @@ if __name__ == "__main__":
         Tool(
             name="summarize_dataframe_tool",
             description=(
-            "Agrupa, filtra o calcula métricas (sum, mean, count, min, max, describe) sobre "
-            "un dataset en memoria mediante su 'dataset_id'. Devuelve el resumen y un nuevo "
-            "'summary_dataset_id' para responder o graficar."   
+                "Inspecciona un dataset en memoria. Permite ver estadísticas globales (describe), "
+                "ordenar por una columna (sort_by) y extraer un rango específico de filas (slice_start y slice_end)."
             ),
             kind="read",
             fn=summarize_dataframe_tool,
@@ -294,8 +292,8 @@ if __name__ == "__main__":
         Tool(
             name="create_plotly_chart_tool",
             description=(
-            "Genera y guarda un gráfico interactivo"
-            "(líneas, barras, pie, áreas) a partir de un 'dataset_id' en memoria."
+                "Genera un gráfico interactivo a partir de un 'dataset_id' en memoria. "
+                "Consulta previamente la guía de selección de gráficos de la skill para parametrizarlo correctamente."
             ),
             kind="local_write",
             fn=create_plotly_chart_tool,
@@ -339,7 +337,7 @@ if __name__ == "__main__":
             agent_run = run_basic_agent(
                 client,
                 system_prompt=system_prompt_content,
-                user_message="Como fue la evolucion mensual de mis ventas? indicame que meses aduvimos flojos y que meses nos fue bien",
+                user_message="Decime que porductos son los que mas me compran los clientes.",
                 registry=registry,
                 decide_next=decide_next,
                 max_steps=8,

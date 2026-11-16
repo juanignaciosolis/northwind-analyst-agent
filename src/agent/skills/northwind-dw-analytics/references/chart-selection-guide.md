@@ -11,3 +11,9 @@ Usar exclusivamente estos literales en chart_type:
 - Categorías ordinales sin temporalidad ( rangos, ABC): "column bar" | dimensions=[cat], metrics=[val]
 - Muchas categorías nominales (> 5, rankings/top) o etiquetas largas: "horizontal bar" | dimensions=[cat], metrics=[val] (ordenar SQL ASC para mayor arriba)
 - Muchas categorías nominales desglosadas por segmento: "horizontal stacker bar" | dimensions=[cat, subcat], metrics=[val]
+
+## Estructura para Gráficos de Evolución Temporal
+Al mapear datos en el tiempo, respeta esta configuración exacta:
+- Eje X (dimensions [tiempo]): Debe ser un único valor temporal (fechas exactas, año, o la concatenación de 'Mes-Año'). Nunca pases mes y año como columnas separadas.
+- Eje Y (metrics [val]): La métrica numérica a analizar (ventas, cantidades, etc.).
+- Leyenda/Color (dimensions [cat]): Las categorías nominales para desglosar múltiples series (aplica para multilineas, áreas o barras apiladas).

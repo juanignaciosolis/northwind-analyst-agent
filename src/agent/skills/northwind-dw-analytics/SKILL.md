@@ -12,28 +12,24 @@ metadata:
 
 # Northwind DW Analytics
 
-## Workflow
+## Workflow Analítico
 
-Ejecuta estrictamente los siguientes pasos en forma secuencial como se explica abajo sin excepción:
+Seguí este marco de trabajo lógico para resolver las consultas del usuario:
 
-1. Analiza la consulta del cliente e identifica hechos, dimensiones a mapear y metricas o KPIs necesarios a calcular
-2. Leé `references/dw-star-schema.md` para extraer las tablas y datos necesarios para responder. Si faltan datos para el pedido, informar el límite exacto sin asumir valores.
-3. Diseñá el cubo de datos y construí mentalmente tu consulta SQL:
-- Partí del grano mínimo Sales(OrderDateKey, ProductKey, CustomerKey) y agregá (roll-up) respetando las cadenas Snowflake de `references/dw-star-schema.md` y las dimensiones identificadas en el paso 1. Para consultar tablas, columnas y tipos de datos usa `load_skill_reference_tool`
-- Leé references/kpi-definitions.md y calculá las metricas o KPIs identificados en el paso 1. Para consultar definiciones usa `load_skill_reference_tool`
-4. Ejecutá la consulta SQL diseñada en el paso 3 contra la DB Northwind. Usa `execute_query_tool`
-5. Si el resultado indica `metadata_only` (más de 10 filas), debes invocar inmediatamente `summarize_dataframe_tool` pasando el `dataset_id` obtenido para analizar los valores.
-6. Analizá e interpretá los resultados obtenidos hasta el momento.
-7. Graficá (Si el cliente lo solicita) leyendo previamente `references/chart-selection-guide.md` para elegir el literal exacto de chart_type y mapear dimensiones y metricas/KPIs en `create_plotly_chart_tool`. Obligatorio: describí cada gráfico generado explicando qué muestra y los hallazgos principales observados.
-8. Respuesta final obligatoria. responde:
-- Con un dato puntual (sin gráfico): Si el usuario pregunta por una respuesta directa, elaborá una respuesta contreta con los resultados obtenidos sin adicionales.
-- Con un análisis/agregación o con un gráfico: verificá que todos los resultados sean coherentes y cierren. Formulá un breve analisis usando como plantilla `assets/executive-report-template.md`.
+- **1. Contexto y Diseño:** Usá `load_skill_reference_tool` para leer el esquema (`references/dw-star-schema.md`) y las métricas (`references/kpi-definitions.md`).
+- **2. Extracción de Datos:** Diseñá tus consultas SQL y ejecútalas usando `execute_query_tool`. 
+- **3. Análisis de Dataset Extensos:** Solo si `execute_query_tool` te indica `metadata_only` (porque la tabla tiene demasiadas filas), usa `summarize_dataframe_tool` para inspeccionar el dataset en memoria.
+- **4. Visualización:** Si el cliente solicita un gráfico, leé la guía en `references/chart-selection-guide.md` y luego generá la visualización usando `create_plotly_chart_tool` con el `dataset_id` que obtuviste.
+- **5. Respuesta Final:** Cargá la plantilla ejecutiva `assets/executive-report-template.md` y estructura tus hallazgos.
 
 ## Rules
+- No uses comillas dobles o simples para nombrar tablas o columnas en las consultas SQL.
+- Nunca incluyas código SQL ni expliques IDs de datasets en la respuesta final.
 
-- No uses comillas dobles o simples para llamar las tablas o columnas en las consultas SQL.
-- En tu respuesta final (paso 5) nunca incluyas ni expliques tus consultas SQL, procedimeintos ni tecnicas aplicadas salvo expreso pedido del cliente
+## Example: "Evolución mensual y extremos"
 
-## Example
-
-Si el usuario pide "¿Cómo fue la evolución mensual de mis ventas?" Debes seguir el workflow: consultar las referencias de esquema, diseñar la consulta SQL que responde la pregunta, invocar `execute_query_tool` para obtener los datos y responder únicamente analizando y dando una breve explicacion al cliente no efrencindo explicaciones innecesarias de procesos y tecnicas seguidas
+Si el usuario pide la evolución de ventas y los meses con más y menos ventas, además de un gráfico:
+1. Lee el esquema de la base de datos.
+2. Ejecuta una consulta SQL agrupando ventas por mes/año. Si te devuelve los datos, ya podés leer toda la tendencia. (Si te devuele `metadata_only`, usa `summarize_dataframe_tool` para inspeccionar el dataset y obtener la tendencia de ventas.)
+4. Consulta la guía de gráficos y usa `create_plotly_chart_tool` con el `dataset_id` de tu primera consulta (la de tendencia).
+5. Redacta la respuesta ejecutiva final combinando todos los datos que recopilaste.

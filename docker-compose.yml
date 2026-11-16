@@ -31,11 +31,27 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
-      - DB_PORT=5432
+      - DB_PORT=${DB_PORT}
     command: sh -c "pip install --no-cache-dir -r requirements-init.txt && python database_init.py"
     depends_on:
       postgres_db:
         condition: service_healthy
 
+# 3. Interfaz web de pgAdmin 4
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin_web
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "${PGADMIN_PORT}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+    depends_on:
+      - postgres_db
+
 volumes:
   northwind: # Tu volumen nombrado para persistencia local
+  pgadmin_data: # Volumen para persistir las conexiones guardadas en pgAdmin
