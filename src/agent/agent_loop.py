@@ -4,6 +4,7 @@ import time
 import json
 from typing import Any, Literal
 from pathlib import Path
+import uuid
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,8 @@ from src.agent.llm import build_provider
 from src.agent.llm.contract import LLMProvider
 from contextlib import contextmanager
 from src.utils.database import create_db_pool
+from src.agent.artifacts.memory import Conversation
+
 
 
 class AgentDecision(BaseModel):
@@ -48,13 +51,15 @@ def decide_next(
     user_message: str,
     available_tools: list[dict[str, Any]] | None = None,
     observations: list[ToolResult] | None = None,
+    history: list[dict[str, str]] | None = None,
 ) -> AgentDecision:
     
     call = client.generate(
         prompt=user_message, 
         system=system_prompt,
         available_tools=available_tools, 
-        tool_results=observations
+        tool_results=observations,
+        history=history
     )
     # Si call ya es el GenerationResult o un wrapper con .result:
     response = getattr(call, "result", call)
@@ -98,18 +103,27 @@ def sanitize_for_trace(value):
 
 
 @contextmanager
-def agent_session(user_id: str, role: str, allow_drafts: bool = True, allow_external_writes: bool =False, skill_loaders: list[SkillLoader] | None = None):
+def agent_session(user_id: str, 
+                  role: str, 
+                  allow_drafts: bool = True, 
+                  allow_external_writes: bool =False, 
+                  skill_loaders: list[SkillLoader] | None = None,
+                  conversation: Conversation | None = None,):
     """Administrador de contexto que gestiona la infraestructura de la sesión."""
     db_pool = create_db_pool()
     try:
+        session_id = conversation.session_id if conversation else f"session_{uuid.uuid4().hex[:8]}"
+        conv = conversation or Conversation(session_id=session_id)
         context = ExecutionContext(
             user_id=user_id,
+            session_id=session_id,
             role=role,
             workspace_ids=["support-ops"],
             allow_drafts=allow_drafts,
             allow_external_writes=allow_external_writes,
             run_id=f"run-{user_id}",
             skill_loaders= skill_loaders,
+            conversation=conv,
             db_pool=db_pool  # Inyección automática al contexto
         )
         yield context
@@ -121,26 +135,26 @@ def agent_session(user_id: str, role: str, allow_drafts: bool = True, allow_exte
 def run_basic_agent(
     client: LLMProvider,
     system_prompt: str | None,
-    user_message,
-    registry,
+    user_message: str,
+    registry: ToolRegistry,
     decide_next,
-    max_steps=4,
-    max_seconds=10.0,
+    max_steps: int = 10,
+    max_seconds: float = 10.0,
     allowed_kinds=None,
     *,
-    context=None,
-    policy=None,
-    max_tool_calls=None,
-):
-    """Ejecuta Decide → Act → Observe y devuelve respuesta, traza y stop reason.
-
-    `decide_next` recibe el mensaje original y las Observations acumuladas.
-    Toda Tool se ejecuta a través del Registry para conservar los controles del runtime.
-    """
-    observations = []
-    trace = []
+    context: ExecutionContext | None = None,
+    policy: None = None,
+    max_tool_calls: int | None = None,
+    keep_last_messages: int = 10,
+) -> dict[str, Any]:
+    """Ejecuta Decide -> Act -> Observe y devuelve respuesta, traza y stop reason."""
+    observations: list[ToolResult] = []
+    trace: list[dict[str, Any]] = []
     started = time.perf_counter()
     tool_calls = 0
+
+    conv = context.conversation if context is not None else None
+    history = conv.as_dicts(keep_last_messages) if conv is not None else None
 
     available_tools = registry.function_declarations(
         context=context,
@@ -152,6 +166,7 @@ def run_basic_agent(
     for step in range(1, max_steps + 1):
         print(f"Step {step}")
         if time.perf_counter() - started > max_seconds:
+            print("limite de tiempo")
             return {
                 "answer": "Se alcanzó el límite de tiempo.",
                 "trace": trace,
@@ -163,26 +178,38 @@ def run_basic_agent(
             client=client,
             system_prompt=system_prompt,
             user_message=user_message,
-            observations=observations,
             available_tools=available_tools,
+            observations=observations,
+            history=history,
         )
         trace.append({
-            "run_id": getattr(context, "run_id", None),
+            "run_id": context.run_id if context is not None else None,
             "step": step,
             "event": "decision",
             "decision": sanitize_for_trace(decision.model_dump()),
         })
 
         if decision.action == "final":
-            print("Final answer:", decision.final_answer)
+            final_text = decision.final_answer or ""
+            print("Final answer:", final_text)
+
+            if conv is not None and final_text.strip():
+                conv.add("user", user_message)
+                conv.add("assistant", final_text)
+                if len(conv.messages) > keep_last_messages:
+                    conv.compact(keep_last=keep_last_messages)
+
+            print(conv.as_dicts())
+
             return {
-                "answer": decision.final_answer,
+                "answer": final_text,
                 "trace": trace,
                 "observations": observations,
                 "stop_reason": "final_answer",
             }
 
         if max_tool_calls is not None and tool_calls >= max_tool_calls:
+            print("Se alcanzo presupuesto de tools")
             return {
                 "answer": "Se alcanzó el presupuesto de Tool Calls.",
                 "trace": trace,
@@ -191,6 +218,7 @@ def run_basic_agent(
             }
 
         if not decision.tool_name:
+            print("Decision invalida")
             return {
                 "answer": "Decisión inválida: falta tool_name.",
                 "trace": trace,
@@ -213,6 +241,7 @@ def run_basic_agent(
         )
 
         if result.metadata is None:
+            print("Metadata vacia")
             result.metadata = {}
         result.metadata["name"] = decision.tool_name
         result.metadata["arguments"] = decision.arguments
@@ -225,7 +254,7 @@ def run_basic_agent(
             f"Observation from tool {decision.tool_name}: {result.model_dump()}"
         )
         trace.append({
-            "run_id": getattr(context, "run_id", None),
+            "run_id": context.run_id if context is not None else None,
             "step": step,
             "event": "observation",
             "tool": decision.tool_name,
@@ -233,6 +262,7 @@ def run_basic_agent(
             "observation": sanitize_for_trace(result.model_dump()),
         })
 
+    print("Se alcanzo el limite de pasos")
     return {
         "answer": "Se alcanzó el máximo de pasos.",
         "trace": trace,
@@ -337,14 +367,14 @@ if __name__ == "__main__":
             agent_run = run_basic_agent(
                 client,
                 system_prompt=system_prompt_content,
-                user_message="Decime que porductos son los que mas me compran los clientes.",
+                user_message="Decime que porductos son los que mas me compran los clientes, cual fue el ultimo producto que vendi y en que estado no tengo ventas todavia. Finalmente haceme un grafico de la evolucion mensual de mis ventas y redacta un resumen con todo",
                 registry=registry,
                 decide_next=decide_next,
-                max_steps=8,
+                max_steps=20,
                 max_seconds=100000,
                 context=support_agent_context,
                 policy=policy,
-                max_tool_calls=4,
+                max_tool_calls=10,
             )
             #print("\n=== RESULTADO FINAL DEL AGENTE ===")
             #print(json.dumps(agent_run, indent=2, ensure_ascii=False, default=str))

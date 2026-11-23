@@ -6,7 +6,7 @@ logger: Logger = logging.getLogger(__name__)
 from openai import OpenAI, AsyncOpenAI
 import time
 import asyncio
-from typing import AsyncIterator
+from typing import AsyncIterator, Any
 import json
 import tiktoken
 
@@ -78,36 +78,50 @@ class OpenAIClient:
 
     @staticmethod
     def _build_input(
-        prompt: str,
-        tool_results: list[ToolResult] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Construye el historial de entrada para el LLM."""
+            prompt: str,
+            tool_results: list[ToolResult] | None = None,
+            history: list[dict[str, str]] | None = None,
+        ) -> list[dict[str, Any]]:
+            """Construye la lista de entrada (`input`) para Responses API respetando el orden."""
+            items: list[dict[str, Any]] = []
 
-        history = [
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ]
+            if history:
+                for msg in history:
+                    role = msg.get("role", "user")
+                    # Responses API espera "user" o "assistant" (por si viniera "model" de otro lado)
+                    openai_role = "assistant" if role in ("assistant", "model") else "user"
+                    content = msg.get("content", "")
+                    if content:
+                        items.append({
+                            "role": openai_role,
+                            "content": str(content),
+                        })
 
-        if tool_results:
-            observations = [
-                result.model_dump(mode="json")
-                for result in tool_results
-            ]
-
-            history.append(
+            items.append(
                 {
                     "role": "user",
-                    "content": (
-                        "Resultados de las herramientas ejecutadas "
-                        "(observaciones para continuar el proceso):\n"
-                        + json.dumps(observations, ensure_ascii=False)
-                    ),
+                    "content": prompt,
                 }
             )
 
-        return history
+            if tool_results:
+                observations = [
+                    result.model_dump(mode="json")
+                    for result in tool_results
+                ]
+
+                items.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Resultados de las herramientas ejecutadas "
+                            "(observaciones para continuar el proceso):\n"
+                            + json.dumps(observations, ensure_ascii=False)
+                        ),
+                    }
+                )
+
+            return items
 
     @staticmethod
     def _usage(response) -> tuple[int, int]:
@@ -179,7 +193,8 @@ class OpenAIClient:
                   temperature: float = 0.2, 
                   max_output_tokens: int | None = None,
                   available_tools: list[dict[str, Any]] | None = None,
-                  tool_results: list[ToolResult] | None = None
+                  tool_results: list[ToolResult] | None = None,
+                  history: list[dict[str, str]] | None = None,
                   ) -> GenerationResult:
 
         logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}")
@@ -193,7 +208,7 @@ class OpenAIClient:
 
         logger.debug("Prompt: " + f"[orange3]{prompt}[/]")
 
-        history = self._build_input(prompt, tool_results)
+        history = self._build_input(prompt, tool_results, history=history)
         try:
             started = time.perf_counter()
             response = self.client.responses.parse(

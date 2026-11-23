@@ -20,6 +20,8 @@ import inspect
 from pydantic import BaseModel, Field, ValidationError
 
 from src.agent.artifacts.data_memory import InMemoryDataStore
+from src.agent.artifacts.memory import Conversation
+
 from src.agent.skills.skills import SkillLoader
 from src.utils.database import create_db_pool
 
@@ -51,6 +53,7 @@ class ExecutionContext(BaseModel):
     allow_drafts: bool = False
     allow_external_writes: bool = False
     run_id: str = "run-local"
+    session_id: str 
 
     db_pool: ConnectionPool | None = Field(default=None, exclude=True)
 
@@ -61,6 +64,7 @@ class ExecutionContext(BaseModel):
         default_factory=InMemoryDataStore, exclude=True
     )
 
+    conversation: Conversation | None = Field(default=None, exclude=True)
 
 class ToolCall(BaseModel):
     """Solicitud estructurada propuesta por el modelo/router: Tool + argumentos."""
@@ -672,7 +676,7 @@ def execute_query_tool(
         # 1. Guardar el DataFrame completo en el DataStore desacoplado
         dataset_id = "ds_ephemeral"
         if context is not None and hasattr(context, "store"):
-            dataset_id = context.store.add(df=df, query=query)
+            dataset_id = context.store.add(df=df, query=query, session_id= context.session_id)
 
         total_rows = len(df)
         THRESHOLD_ROWS = 24
@@ -733,19 +737,19 @@ def summarize_dataframe_tool(
             metadata={"error_type": "NoContextAvailable", "name": "summarize_dataframe_tool"},
         )
 
-    # Resolución inteligente del dataset
     target_dataset_id = args.dataset_id
-    if target_dataset_id is None:
-        valid_ids = context.store.list_ids()
-        if not valid_ids:
-            return ToolResult(ok=False, content="No hay datasets registrados en memoria.")
-        target_dataset_id = valid_ids[-1]
 
-    df = context.store.get(target_dataset_id)
+    df = context.store.get(session_id=context.session_id, dataset_id=target_dataset_id)
     if df is None:
+        session_ids = list(
+            getattr(context.store, "_storage", {}).get(context.session_id, {}).keys()
+        )
         return ToolResult(
-            ok=False, 
-            content=f"Dataset '{target_dataset_id}' no encontrado. IDs disponibles: {context.store.list_ids()}"
+            ok=False,
+            content=(
+                f"Dataset '{target_dataset_id}' no encontrado en la sesión '{context.session_id}'. "
+                f"IDs disponibles en la sesión: {session_ids}"
+            ),
         )
 
     if df.empty:
@@ -813,7 +817,7 @@ def create_plotly_chart_tool(
         )
 
     # 1. Recuperar el DataFrame
-    df = context.store.get(args.dataset_id)
+    df = context.store.get(dataset_id=args.dataset_id, session_id= context.session_id)
     if df is None:
         valid_ids = context.store.list_ids()
         return ToolResult(

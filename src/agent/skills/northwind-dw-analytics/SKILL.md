@@ -19,7 +19,7 @@ Seguí este marco de trabajo lógico para resolver las consultas del usuario:
 - **1. Contexto y Diseño:** Usá `load_skill_reference_tool` para leer el esquema (`references/dw-star-schema.md`) y las métricas (`references/kpi-definitions.md`).
 - **2. Extracción de Datos:** Diseñá tus consultas SQL y ejecútalas usando `execute_query_tool`. 
 - **3. Análisis de Dataset Extensos:** Solo si `execute_query_tool` te indica `metadata_only` (porque la tabla tiene demasiadas filas), usa `summarize_dataframe_tool` para inspeccionar el dataset en memoria.
-- **4. Visualización:** Si el cliente solicita un gráfico, leé la guía en `references/chart-selection-guide.md` y luego generá la visualización usando `create_plotly_chart_tool` con el `dataset_id` que obtuviste.
+- **4. Visualización:** Si el cliente solicita un gráfico, leé siempre antes la guía en `references/chart-selection-guide.md` y luego generá la visualización usando `create_plotly_chart_tool` con el `dataset_id` que obtuviste.
 - **5. Respuesta Final:** Cargá la plantilla ejecutiva `assets/executive-report-template.md` y estructura tus hallazgos.
 
 ## Rules

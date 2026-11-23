@@ -91,14 +91,32 @@ class GeminiClient:
     @staticmethod
     def _build_contents(
         prompt: str,
+        history: list[dict[str, Any]] | None = None,
         tool_results: list[ToolResult] | None = None,
     ) -> list[types.Content]:
-        contents: list[types.Content] = [
+        contents: list[types.Content] = []
+
+        if history:
+            for msg in history:
+                role = msg.get("role", "user")
+                # En el SDK de Gemini, el rol del asistente debe ser "model"
+                gemini_role = "model" if role in ("assistant", "model") else "user"
+                content_text = msg.get("content", "")
+
+                if content_text:
+                    contents.append(
+                        types.Content(
+                            role=gemini_role,
+                            parts=[types.Part.from_text(text=str(content_text))],
+                        )
+                    )
+
+        contents.append(
             types.Content(
                 role="user",
                 parts=[types.Part.from_text(text=prompt)],
             )
-        ]
+        )
 
         if not tool_results:
             return contents
@@ -216,7 +234,8 @@ class GeminiClient:
                  temperature: float = 0.2, 
                  max_output_tokens: int | None = None, 
                  available_tools: list[dict[str, Any]] | None = None,
-                 tool_results: list[ToolResult] | None = None
+                 tool_results: list[ToolResult] | None = None,
+                 history: list[Any] | None = None,
                  ) -> GenerationResult:
 
         logger.debug(f"Configuracion:\nSystem Prompt - {"Contiene" if system else "No contiene"}\nTemperature - {temperature}\nMax. Output Tokens - {max_output_tokens}\nMTools- {available_tools}")
@@ -233,6 +252,7 @@ class GeminiClient:
         contents = self._build_contents(
             prompt=prompt,
             tool_results=tool_results,
+            history=history
         )
 
         started = time.perf_counter()
@@ -255,7 +275,8 @@ class GeminiClient:
                          system: str | None = None, 
                          temperature: float = 0.2,
                          available_tools: list[dict[str, Any]] | None = None,
-                         tool_results: list[ToolResult] | None = None
+                         tool_results: list[ToolResult] | None = None,
+                         history: list[Any] | None = None
                          ) -> GenerationResult:
         if not prompt.strip():
             raise InvalidRequestError("El prompt no puede estar vacío")
@@ -263,12 +284,13 @@ class GeminiClient:
         contents = self._build_contents(
                     prompt=prompt,
                     tool_results=tool_results,
+                    history=history
                 )
         try:
             response = await self.client.aio.models.generate_content(
                 model=self.model,
                 contents=contents,
-                config=self._config(system, temperature),
+                config=self._config(system, temperature, available_tools),
             )
             return self._normalize(response, started)
         except Exception as exc:
