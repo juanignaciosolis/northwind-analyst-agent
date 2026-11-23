@@ -27,9 +27,10 @@ class DatabaseManager:
                 database=settings.db_name,
                 user=settings.db_user,
                 password=settings.get_db_password(),
-                port=settings.db_port
+                port=settings.db_port,
+                options="-c search_path=northwind,agent_memory,public",
             )
-            logger.info(f"Conexión a {os.getenv('DB_NAME')} establecida.")
+            logger.info(f"Conexión a {settings.db_name} establecida.")
         except Exception as e:
             logger.error(f"Error de conexión: {e}")
             raise e
@@ -58,7 +59,7 @@ class DatabaseManager:
             logger.error(f"Error en consulta: {e}")
             raise e
 
-def clean_sql_query(raw_query: str) -> str:
+def clean_sql_query(raw_query: str) -> str | None:
     """
     Limpia los bloques de código Markdown y normaliza los saltos de línea
     para que la query quede en una sola línea plana de texto ejecutable.
@@ -97,11 +98,11 @@ def create_db_pool() -> ConnectionPool:
             "user": settings.db_user,
             "password": settings.get_db_password(),
             "port": settings.db_port,
+            "options": "-c search_path=northwind,agent_memory,public",
         },
         min_size=settings.db_pool_min_connections,
         max_size=settings.db_pool_max_connections,
         timeout=settings.db_pool_timeout_seconds,
         open=True,
     )
-
 

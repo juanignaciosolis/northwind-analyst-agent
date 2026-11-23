@@ -20,10 +20,17 @@ import inspect
 from pydantic import BaseModel, Field, ValidationError
 
 from src.agent.artifacts.data_memory import InMemoryDataStore
-from src.agent.artifacts.memory import Conversation
+from src.agent.artifacts.conversation_history import Conversation
 
 from src.agent.skills.skills import SkillLoader
 from src.utils.database import create_db_pool
+from src.agent.artifacts.permanent_memory import (
+    ALLOWED_MEMORY_KINDS,
+    MemoryCandidate,
+    MemoryScope,
+    PostgresMemoryStore,
+    evaluate_write,
+)
 
 
 ToolKind = Literal[
@@ -65,6 +72,10 @@ class ExecutionContext(BaseModel):
     )
 
     conversation: Conversation | None = Field(default=None, exclude=True)
+
+    memory_store: PostgresMemoryStore | None = Field(default=None, exclude=True)
+    project_id: str = ""
+    course_id: str = ""
 
 class ToolCall(BaseModel):
     """Solicitud estructurada propuesta por el modelo/router: Tool + argumentos."""
@@ -1277,6 +1288,313 @@ def load_skill_reference_tool(
         )
 
 
+class RecallMemoryArgs(BaseModel):
+    query: str | None = Field(
+        default=None,
+        description="Texto o palabra clave para buscar en `key` o en el contenido de memoria.",
+    )
+    kinds: list[str] | None = Field(
+        default=None,
+        description=(
+            "Lista opcional de tipos a filtrar: user_preference, business_rule, "
+            "user_correction, kpi_definition, analysis_pattern."
+        ),
+    )
+    limit: int = Field(default=5, ge=1, le=20)
+
+
+class SaveMemoryArgs(BaseModel):
+    kind: str = Field(..., min_length=1)
+    key: str = Field(..., min_length=1)
+    value: Any = Field(...)
+    source: str = Field(default="user_explicit")
+    confirmed: bool = Field(default=True)
+    durable: bool = Field(default=True)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    priority: int = Field(default=5, ge=1, le=10)
+    allow_duplicate_key: bool = Field(default=False)
+
+
+class SupersedeMemoryArgs(BaseModel):
+    old_memory_id: str = Field(..., min_length=1)
+    kind: str = Field(..., min_length=1)
+    key: str = Field(..., min_length=1)
+    value: Any = Field(...)
+    source: str = Field(default="user_correction")
+    confirmed: bool = Field(default=True)
+    durable: bool = Field(default=True)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    priority: int = Field(default=5, ge=1, le=10)
+
+
+def _normalize_value(value: Any) -> Any:
+    if isinstance(value, str):
+        stripped = value.strip()
+        if (stripped.startswith("{") and stripped.endswith("}")) or (
+            stripped.startswith("[") and stripped.endswith("]")
+        ):
+            try:
+                return json.loads(stripped)
+            except json.JSONDecodeError:
+                return value
+    return value
+
+
+def _resolve_memory_store(context: ExecutionContext) -> PostgresMemoryStore:
+    if context.memory_store is not None:
+        return context.memory_store
+    if context.db_pool is not None:
+        return PostgresMemoryStore(pool=context.db_pool, schema="agent_memory")
+    raise ValueError("No hay `memory_store` ni `db_pool` configurado en el contexto.")
+
+
+def _build_scope(context: ExecutionContext) -> MemoryScope:
+    project_id = context.project_id or (
+        context.workspace_ids[0] if context.workspace_ids else ""
+    )
+    return MemoryScope(
+        user_id=context.user_id,
+        project_id=str(project_id),
+        course_id=str(context.course_id or ""),
+        session_id=str(context.session_id or ""),
+    )
+
+
+def recall_memory_tool(
+    args: RecallMemoryArgs | dict[str, Any],
+    context: ExecutionContext | None = None,
+) -> ToolResult:
+    tool_name = "recall_memory_tool"
+    if context is None or (context.memory_store is None and context.db_pool is None):
+        return ToolResult(
+            ok=False,
+            content="Error crítico: No hay `memory_store` ni `db_pool` configurado en el contexto.",
+            metadata={"error_type": "NoMemoryStoreError", "name": tool_name},
+        )
+
+    try:
+        params = RecallMemoryArgs.model_validate(args)
+        store = _resolve_memory_store(context)
+        scope = _build_scope(context)
+
+        normalized_kinds = (
+            {k.strip() for k in params.kinds if isinstance(k, str) and k.strip()}
+            if params.kinds
+            else None
+        )
+
+        memories = store.retrieve(
+            scope=scope,
+            query=params.query,
+            kinds=normalized_kinds,
+            limit=params.limit,
+        )
+
+        payload = {
+            "status": "ok",
+            "count": len(memories),
+            "memories": memories,
+        }
+        return ToolResult(
+            ok=True,
+            content=json.dumps(payload, default=str),
+            metadata={
+                "count": len(memories),
+                "name": tool_name,
+            },
+        )
+    except Exception as exc:
+        return ToolResult(
+            ok=False,
+            content=f"Error al recuperar memoria: {exc}",
+            metadata={"error_type": type(exc).__name__, "name": tool_name},
+        )
+
+
+def save_memory_tool(
+    args: SaveMemoryArgs | dict[str, Any],
+    context: ExecutionContext | None = None,
+) -> ToolResult:
+    """Guarda una nueva memoria durable y confirmada en `agent_memory.memory`."""
+    tool_name = "save_memory_tool"
+    if context is None or (context.memory_store is None and context.db_pool is None):
+        return ToolResult(
+            ok=False,
+            content="Error crítico: No hay `memory_store` ni `db_pool` configurado en el contexto.",
+            metadata={"error_type": "NoMemoryStoreError", "name": tool_name},
+        )
+
+    try:
+        params = SaveMemoryArgs.model_validate(args)
+        store = _resolve_memory_store(context)
+        scope = _build_scope(context)
+
+        candidate = MemoryCandidate(
+            kind=params.kind.strip(),
+            key=params.key.strip(),
+            value=_normalize_value(params.value),
+            source=params.source.strip(),
+            confidence=params.confidence,
+            priority=params.priority,
+            confirmed=params.confirmed,
+            durable=params.durable,
+            sensitive=False,
+            persist_allowed=True,
+        )
+
+        decision = evaluate_write(candidate)
+        if not decision.allowed:
+            payload = {
+                "status": "rejected",
+                "reason": decision.reason,
+                "allowed_kinds": sorted(ALLOWED_MEMORY_KINDS),
+                "key": candidate.key,
+                "kind": candidate.kind,
+            }
+            return ToolResult(
+                ok=False,
+                content=json.dumps(payload, default=str),
+                metadata={
+                    "error_type": "MemoryPolicyRejected",
+                    "name": tool_name,
+                },
+            )
+
+        if not params.allow_duplicate_key:
+            existing_memories = store.retrieve(
+                scope=scope,
+                kinds={candidate.kind},
+                limit=20,
+            )
+            matching_key = next(
+                (
+                    m
+                    for m in existing_memories
+                    if str(m.get("key", "")).strip().lower() == candidate.key.lower()
+                ),
+                None,
+            )
+            if matching_key is not None:
+                payload = {
+                    "status": "duplicate_active_key",
+                    "reason": (
+                        f"Ya existe una memoria activa con key='{candidate.key}' "
+                        f"(memory_id='{matching_key.get('memory_id')}'). "
+                        "Usa `supersede_memory_tool` con ese `old_memory_id` para actualizarla."
+                    ),
+                    "existing_memory": matching_key,
+                }
+                return ToolResult(
+                    ok=False,
+                    content=json.dumps(payload, default=str),
+                    metadata={
+                        "error_type": "DuplicateActiveMemoryKey",
+                        "existing_memory_id": matching_key.get("memory_id"),
+                        "name": tool_name,
+                    },
+                )
+
+        saved = store.write(scope=scope, candidate=candidate)
+        payload = {
+            "status": "saved",
+            "memory": saved,
+        }
+        return ToolResult(
+            ok=True,
+            content=json.dumps(payload, default=str),
+            metadata={
+                "memory_id": saved.get("memory_id"),
+                "key": saved.get("key"),
+                "name": tool_name,
+            },
+        )
+    except Exception as exc:
+        return ToolResult(
+            ok=False,
+            content=f"Error al guardar memoria: {exc}",
+            metadata={"error_type": type(exc).__name__, "name": tool_name},
+        )
+
+def supersede_memory_tool(
+    args: SupersedeMemoryArgs | dict[str, Any],
+    context: ExecutionContext | None = None,
+) -> ToolResult:
+    tool_name = "supersede_memory_tool"
+    if context is None or (context.memory_store is None and context.db_pool is None):
+        return ToolResult(
+            ok=False,
+            content="Error crítico: No hay `memory_store` ni `db_pool` configurado en el contexto.",
+            metadata={"error_type": "NoMemoryStoreError", "name": tool_name},
+        )
+
+    try:
+        params = SupersedeMemoryArgs.model_validate(args)
+        store = _resolve_memory_store(context)
+        scope = _build_scope(context)
+
+        clean_old_id = params.old_memory_id.strip()
+        candidate = MemoryCandidate(
+            kind=params.kind.strip(),
+            key=params.key.strip(),
+            value=_normalize_value(params.value),
+            source=params.source.strip(),
+            confidence=params.confidence,
+            priority=params.priority,
+            confirmed=params.confirmed,
+            durable=params.durable,
+            sensitive=False,
+            persist_allowed=True,
+        )
+
+        decision = evaluate_write(candidate)
+        if not decision.allowed:
+            payload = {
+                "status": "rejected",
+                "reason": decision.reason,
+                "allowed_kinds": sorted(ALLOWED_MEMORY_KINDS),
+                "old_memory_id": clean_old_id,
+            }
+            return ToolResult(
+                ok=False,
+                content=json.dumps(payload, default=str),
+                metadata={
+                    "error_type": "MemoryPolicyRejected",
+                    "name": tool_name,
+                },
+            )
+
+        replaced = store.supersede(
+            old_memory_id=clean_old_id,
+            scope=scope,
+            candidate=candidate,
+        )
+        payload = {
+            "status": "superseded",
+            "old_memory_id": clean_old_id,
+            "memory": replaced,
+        }
+        return ToolResult(
+            ok=True,
+            content=json.dumps(payload, default=str),
+            metadata={
+                "old_memory_id": clean_old_id,
+                "new_memory_id": replaced.get("memory_id"),
+                "name": tool_name,
+            },
+        )
+    except LookupError as exc:
+        return ToolResult(
+            ok=False,
+            content=f"No se pudo reemplazar la memoria: {exc}",
+            metadata={"error_type": "MemoryNotFoundError", "name": tool_name},
+        )
+    except Exception as exc:
+        return ToolResult(
+            ok=False,
+            content=f"Error al reemplazar memoria: {exc}",
+            metadata={"error_type": type(exc).__name__, "name": tool_name},
+        )
+
 
 if __name__ == "__main__":
 
@@ -1302,27 +1620,34 @@ if __name__ == "__main__":
     print(SKILL_ROOT_PATH)
 
     db_pool = create_db_pool()
+    memory_store = PostgresMemoryStore(pool=db_pool, schema="agent_memory")
 
     viewer_context = ExecutionContext(
         user_id="viewer-demo",
         role="viewer",
         workspace_ids=["support-ops"],
+        project_id="northwind",
         allow_drafts=False,
         allow_external_writes=False,
         run_id="c9-viewer-demo",
+        session_id="sess-viewer-demo",
         skill_loaders=[northwind_dw_analytics],
-        db_pool= db_pool
+        db_pool=db_pool,
+        memory_store=memory_store,
     )
 
     support_agent_context = ExecutionContext(
         user_id="support-agent-demo",
         role="support_agent",
         workspace_ids=["support-ops"],
+        project_id="northwind",
         allow_drafts=True,
         allow_external_writes=False,
         run_id="c9-support-agent-demo",
+        session_id="sess-support-agent-demo",
         skill_loaders=[northwind_dw_analytics],
-        db_pool= db_pool
+        db_pool=db_pool,
+        memory_store=memory_store,
     )
 
     registry.register(
@@ -1380,20 +1705,19 @@ if __name__ == "__main__":
         )
     )
 
-
     registry.register(
-    Tool(
-        name="load_skill_instructions_tool",
-        description="Carga las instrucciones operativas y flujos de una Agent Skill a partir de su nombre exacto.",
-        kind="read",
-        fn=load_skill_instructions_tool,
-        args_model=LoadSkillSchema,
-        timeout_s=10.0,
-        retries=0,
-        backoff_s=0.05,
-        idempotent=True,
+        Tool(
+            name="load_skill_instructions_tool",
+            description="Carga las instrucciones operativas y flujos de una Agent Skill a partir de su nombre exacto.",
+            kind="read",
+            fn=load_skill_instructions_tool,
+            args_model=LoadSkillSchema,
+            timeout_s=10.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
     )
-)
 
     registry.register(
         Tool(
@@ -1409,13 +1733,52 @@ if __name__ == "__main__":
         )
     )
 
+    registry.register(
+        Tool(
+            name="recall_memory_tool",
+            description="Recupera memorias activas y durables del usuario para el contexto actual.",
+            kind="read",
+            fn=recall_memory_tool,
+            args_model=RecallMemoryArgs,
+            timeout_s=5.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
+    )
 
-    # =========================================================================
-    # 1. Probar execute_query_tool
-    # =========================================================================
-    
+    registry.register(
+        Tool(
+            name="save_memory_tool",
+            description="Guarda una preferencia, regla de negocio, definición de KPI o corrección durable confirmada.",
+            kind="local_write",
+            fn=save_memory_tool,
+            args_model=SaveMemoryArgs,
+            timeout_s=5.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=False,
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="supersede_memory_tool",
+            description="Reemplaza atómicamente una memoria activa existente por una nueva versión.",
+            kind="local_write",
+            fn=supersede_memory_tool,
+            args_model=SupersedeMemoryArgs,
+            timeout_s=5.0,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=False,
+        )
+    )
 
     try:
+        # =====================================================================
+        # 1. Probar execute_query_tool
+        # =====================================================================
         call_query = ToolCall(
             tool_name="execute_query_tool",
             arguments={
@@ -1449,118 +1812,232 @@ if __name__ == "__main__":
             raise RuntimeError(
                 f"Fallo en execute_query_tool: {result_query.content}"
             )
-    finally:
-        db_pool.close()
 
-    dataset_id = json.loads(result_query.content)["dataset_id"]
+        dataset_id = json.loads(result_query.content)["dataset_id"]
 
-    # =========================================================================
-    # 2. Probar summarize_dataframe_tool
-    # =========================================================================
-    call_summary = ToolCall(
-        tool_name="summarize_dataframe_tool",
-        arguments={
-            "dataset_id": dataset_id,
-            "group_by": ["País del cliente"],
-            "aggregations": [
-                {
-                    "column": "Ventas",
-                    "agg": "sum",
-                    "alias": "Ventas_Totales",
-                },
-                {
-                    "column": "País del proveedor",
-                    "agg": "nunique",
-                    "alias": "Proveedores_Unicos",
-                },
-            ],
-            "sort_by": "Ventas_Totales",
-            "ascending": False,
-            "limit": 5,
-        },
-    )
-
-    result_summary = registry.run(
-        call_summary,
-        context=support_agent_context,
-        policy=policy,
-    )
-    show_tool_result(
-        f"[2/3] summarize_dataframe_tool sobre '{dataset_id}'",
-        result_summary,
-    )
-
-    if not result_summary.ok:
-        raise RuntimeError(
-            f"Fallo en summarize_dataframe_tool: {result_summary.content}"
+        # =====================================================================
+        # 2. Probar summarize_dataframe_tool
+        # =====================================================================
+        call_summary = ToolCall(
+            tool_name="summarize_dataframe_tool",
+            arguments={
+                "dataset_id": dataset_id,
+                "group_by": ["País del cliente"],
+                "aggregations": [
+                    {
+                        "column": "Ventas",
+                        "agg": "sum",
+                        "alias": "Ventas_Totales",
+                    },
+                    {
+                        "column": "País del proveedor",
+                        "agg": "nunique",
+                        "alias": "Proveedores_Unicos",
+                    },
+                ],
+                "sort_by": "Ventas",
+                "ascending": False,
+                "limit": 5,
+            },
         )
 
-    # =========================================================================
-    # 3. Probar create_plotly_chart_tool
-    # =========================================================================
-    call_chart = ToolCall(
-        tool_name="create_plotly_chart_tool",
-        arguments={
-            "dataset_id": dataset_id,
-            "chart_type": "column bar",
-            "dimensions": ["País del cliente"],
-            "metrics": ["Ventas"],
-            "filter_column": "Año",
-            "hover_columns": ["País del proveedor"],
-            "title": "Ventas por País del Cliente con Filtro de Año",
-            "x_label": "País del Cliente",
-            "y_label": "Monto Total de Ventas",
-        },
-    )
+        result_summary = registry.run(
+            call_summary,
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result(
+            f"[2/3] summarize_dataframe_tool sobre '{dataset_id}'",
+            result_summary,
+        )
 
-    result_chart = registry.run(
-        call_chart,
-        context=support_agent_context,
-        policy=policy,
-    )
-    show_tool_result(
-        f"[3/3] create_plotly_chart_tool sobre '{dataset_id}'", result_chart
-    )
+        if not result_summary.ok:
+            raise RuntimeError(
+                f"Fallo en summarize_dataframe_tool: {result_summary.content}"
+            )
 
-    # =========================================================================
-    # 4. Probar load_skill_instructions_tool
-    # =========================================================================
-    call_skill = ToolCall(
-        tool_name="load_skill_instructions_tool",
-        arguments={
-            "skill_name": "northwind-dw-analytics",
-            "reason": "Necesito consultar las instrucciones operativas para guiar el flujo analítico.",
-        },
-    )
+        # =====================================================================
+        # 3. Probar create_plotly_chart_tool
+        # =====================================================================
+        call_chart = ToolCall(
+            tool_name="create_plotly_chart_tool",
+            arguments={
+                "dataset_id": dataset_id,
+                "chart_type": "column bar",
+                "dimensions": ["País del cliente"],
+                "metrics": ["Ventas"],
+                "filter_column": "Año",
+                "hover_columns": ["País del proveedor"],
+                "title": "Ventas por País del Cliente con Filtro de Año",
+                "x_label": "País del Cliente",
+                "y_label": "Monto Total de Ventas",
+            },
+        )
 
-    result_skill = registry.run(
-        call_skill,
-        context=support_agent_context,
-        policy=policy,
-    )
-    show_tool_result(
-        "[4/4] load_skill_instructions_tool sobre 'northwind-dw-analytics'", 
-        result_skill
-    )
+        result_chart = registry.run(
+            call_chart,
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result(
+            f"[3/3] create_plotly_chart_tool sobre '{dataset_id}'", result_chart
+        )
 
-    # =========================================================================
-    # 5. Probar load_skill_reference_tool
-    # =========================================================================
-    call_ref = ToolCall(
-        tool_name="load_skill_reference_tool",
-        arguments={
-            "skill_name": "northwind-dw-analytics",
-            "relative_path": "references/dw-star-schema.md",
-            "reason": "Necesito verificar las reglas dimensionales y el esquema estrella en PostgreSQL.",
-        },
-    )
+        # =====================================================================
+        # 4. Probar load_skill_instructions_tool
+        # =====================================================================
+        call_skill = ToolCall(
+            tool_name="load_skill_instructions_tool",
+            arguments={
+                "skill_name": "northwind-dw-analytics",
+                "reason": "Necesito consultar las instrucciones operativas para guiar el flujo analítico.",
+            },
+        )
 
-    result_ref = registry.run(
-        call_ref,
-        context=support_agent_context,
-        policy=policy,
-    )
-    show_tool_result(
-        "[4/4] load_skill_reference_tool sobre 'references/dw-star-schema.md'", 
-        result_ref
-    )
+        result_skill = registry.run(
+            call_skill,
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result(
+            "[4/4] load_skill_instructions_tool sobre 'northwind-dw-analytics'",
+            result_skill,
+        )
+
+        # =====================================================================
+        # 5. Probar load_skill_reference_tool
+        # =====================================================================
+        call_ref = ToolCall(
+            tool_name="load_skill_reference_tool",
+            arguments={
+                "skill_name": "northwind-dw-analytics",
+                "relative_path": "references/dw-star-schema.md",
+                "reason": "Necesito verificar las reglas dimensionales y el esquema estrella en PostgreSQL.",
+            },
+        )
+
+        result_ref = registry.run(
+            call_ref,
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result(
+            "[4/4] load_skill_reference_tool sobre 'references/dw-star-schema.md'",
+            result_ref,
+        )
+
+        # =====================================================================
+        # 6. Pruebas de memoria persistente (save -> recall -> supersede -> cleanup)
+        # =====================================================================
+
+        # 6a. Rechazo por política (durable=False)
+        result_mem_rejected = registry.run(
+            ToolCall(
+                tool_name="save_memory_tool",
+                arguments={
+                    "kind": "user_preference",
+                    "key": "ephemeral_chart_filter",
+                    "value": {"year": 2020},
+                    "confirmed": True,
+                    "durable": False,
+                },
+            ),
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result("[M1] save_memory_tool rechazado por política", result_mem_rejected)
+
+        # 6b. Guardar memoria durable válida
+        result_mem_save = registry.run(
+            ToolCall(
+                tool_name="save_memory_tool",
+                arguments={
+                    "kind": "kpi_definition",
+                    "key": "ventas_netas",
+                    "value": {"formula": "SUM(salesamount)", "currency": "USD"},
+                    "source": "user_explicit",
+                    "confidence": 0.95,
+                    "priority": 8,
+                },
+            ),
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result("[M2] save_memory_tool válido", result_mem_save)
+        if not result_mem_save.ok:
+            raise RuntimeError(f"Fallo en save_memory_tool: {result_mem_save.content}")
+
+        saved_memory_id = json.loads(result_mem_save.content)["memory"]["memory_id"]
+
+        # 6c. Recuperar memoria guardada
+        result_mem_recall = registry.run(
+            ToolCall(
+                tool_name="recall_memory_tool",
+                arguments={
+                    "query": "ventas_netas",
+                    "kinds": ["kpi_definition"],
+                    "limit": 5,
+                },
+            ),
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result("[M3] recall_memory_tool", result_mem_recall)
+
+        # 6d. Reemplazar memoria existente con supersede_memory_tool
+        result_mem_supersede = registry.run(
+            ToolCall(
+                tool_name="supersede_memory_tool",
+                arguments={
+                    "old_memory_id": saved_memory_id,
+                    "kind": "kpi_definition",
+                    "key": "ventas_netas",
+                    "value": {"formula": "SUM(salesamount - discountamount)", "currency": "USD"},
+                    "source": "user_correction",
+                    "confidence": 1.0,
+                    "priority": 9,
+                },
+            ),
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result("[M4] supersede_memory_tool", result_mem_supersede)
+        if not result_mem_supersede.ok:
+            raise RuntimeError(f"Fallo en supersede_memory_tool: {result_mem_supersede.content}")
+
+        new_memory_id = json.loads(result_mem_supersede.content)["memory"]["memory_id"]
+
+        # 6e. Verificar que recall_memory_tool devuelve solo la nueva versión activa
+        result_mem_recall_after = registry.run(
+            ToolCall(
+                tool_name="recall_memory_tool",
+                arguments={
+                    "query": "ventas_netas",
+                    "kinds": ["kpi_definition"],
+                    "limit": 5,
+                },
+            ),
+            context=support_agent_context,
+            policy=policy,
+        )
+        show_tool_result("[M5] recall_memory_tool tras supersede", result_mem_recall_after)
+
+        # 6f. Limpiar registros de prueba de la tabla agent_memory.memory
+        cleanup_scope = MemoryScope(
+            user_id=support_agent_context.user_id,
+            project_id=support_agent_context.project_id,
+            course_id=support_agent_context.course_id,
+            session_id=support_agent_context.session_id,
+        )
+        memory_store.delete(memory_id=new_memory_id, scope=cleanup_scope)
+        with db_pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM agent_memory.memory WHERE memory_id IN (%s, %s);",
+                    (saved_memory_id, new_memory_id),
+                )
+            conn.commit()
+        print("\n>>> [M6] Limpieza de registros de prueba completada.")
+
+    finally:
+        db_pool.close()

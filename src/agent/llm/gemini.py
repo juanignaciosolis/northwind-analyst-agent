@@ -227,7 +227,7 @@ class GeminiClient:
                 raise mapped_exc from exc
 
     #@auditar_tokenomics
-    @retry_backoff(3,0.3)
+    @retry_backoff(5,0.3)
     def generate(self, prompt: str,
                   *, 
                  system: str | None = None, 

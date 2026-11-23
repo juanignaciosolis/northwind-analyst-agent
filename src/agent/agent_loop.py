@@ -13,6 +13,7 @@ from src.agent.tools.tools import ToolCall, Tool, ExecutionContext, ToolRegistry
 from src.agent.tools.tools import execute_query_tool, summarize_dataframe_tool, create_plotly_chart_tool
 from src.agent.tools.tools import load_skill_instructions_tool, load_skill_reference_tool
 from src.agent.tools.tools import QuerySchema, SummarizeSchema, CreateChartSchema, LoadSkillSchema, LoadResourceSchema
+from src.agent.tools.tools import recall_memory_tool, supersede_memory_tool, save_memory_tool, RecallMemoryArgs, SupersedeMemoryArgs, SaveMemoryArgs
 from src.agent.skills.skills import SkillLoader
 from src.prompts.system_prompt import agent_system_prompt, zero_shot_system_prompt, agent_skills_system_prompt
 from src.settings import settings
@@ -20,7 +21,8 @@ from src.agent.llm import build_provider
 from src.agent.llm.contract import LLMProvider
 from contextlib import contextmanager
 from src.utils.database import create_db_pool
-from src.agent.artifacts.memory import Conversation
+from src.agent.artifacts.conversation_history import Conversation
+from src.agent.artifacts.permanent_memory import PostgresMemoryStore
 
 
 
@@ -103,34 +105,45 @@ def sanitize_for_trace(value):
 
 
 @contextmanager
-def agent_session(user_id: str, 
-                  role: str, 
-                  allow_drafts: bool = True, 
-                  allow_external_writes: bool =False, 
-                  skill_loaders: list[SkillLoader] | None = None,
-                  conversation: Conversation | None = None,):
+def agent_session(
+    user_id: str,
+    role: str,
+    allow_drafts: bool = True,
+    allow_external_writes: bool = False,
+    skill_loaders: list[SkillLoader] | None = None,
+    conversation: Conversation | None = None,
+    project_id: str = "",
+    course_id: str = "",
+):
     """Administrador de contexto que gestiona la infraestructura de la sesión."""
     db_pool = create_db_pool()
+    memory_store = PostgresMemoryStore(pool=db_pool, schema="agent_memory")
     try:
-        session_id = conversation.session_id if conversation else f"session_{uuid.uuid4().hex[:8]}"
+        session_id = (
+            conversation.session_id
+            if conversation
+            else f"session_{uuid.uuid4().hex[:8]}"
+        )
         conv = conversation or Conversation(session_id=session_id)
         context = ExecutionContext(
             user_id=user_id,
             session_id=session_id,
             role=role,
             workspace_ids=["support-ops"],
+            project_id=project_id,
+            course_id=course_id,
             allow_drafts=allow_drafts,
             allow_external_writes=allow_external_writes,
             run_id=f"run-{user_id}",
-            skill_loaders= skill_loaders,
+            skill_loaders=skill_loaders or [],
             conversation=conv,
-            db_pool=db_pool  # Inyección automática al contexto
+            db_pool=db_pool,
+            memory_store=memory_store,
         )
         yield context
     finally:
-            # ConnectionPool de psycopg_pool solo usa close()
-            if db_pool:
-                db_pool.close()
+        if db_pool:
+            db_pool.close()
 
 def run_basic_agent(
     client: LLMProvider,
@@ -277,12 +290,11 @@ if __name__ == "__main__":
     system_prompt_content = agent_skills_system_prompt()
 
     northwind_dw_analytics = SkillLoader(SKILL_DIR)
-    
+
     client = build_provider(settings)
-    
+
     registry = ToolRegistry()
     policy = ToolPolicy()
-
 
     registry.register(
         Tool(
@@ -336,18 +348,18 @@ if __name__ == "__main__":
     )
 
     registry.register(
-    Tool(
-        name="load_skill_instructions_tool",
-        description="Carga las instrucciones operativas y flujos de una skill a partir de su nombre exacto.",
-        kind="read",
-        fn=load_skill_instructions_tool,
-        args_model=LoadSkillSchema,
-        timeout_s=300000,
-        retries=0,
-        backoff_s=0.05,
-        idempotent=True,
+        Tool(
+            name="load_skill_instructions_tool",
+            description="Carga las instrucciones operativas y flujos de una skill a partir de su nombre exacto.",
+            kind="read",
+            fn=load_skill_instructions_tool,
+            args_model=LoadSkillSchema,
+            timeout_s=300000,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
     )
-)
 
     registry.register(
         Tool(
@@ -363,11 +375,87 @@ if __name__ == "__main__":
         )
     )
 
-    with agent_session(user_id="support-agent-demo", role="support_agent", skill_loaders=[northwind_dw_analytics]) as support_agent_context:
+    registry.register(
+        Tool(
+            name="recall_memory_tool",
+            description=(
+                "Recupera memorias activas y durables del usuario como ser preferencias, reglas de negocio, "
+                "definiciones de KPI, correcciones o patrones de análisis"
+            ),
+            kind="read",
+            fn=recall_memory_tool,
+            args_model=RecallMemoryArgs,
+            timeout_s=30000,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=True,
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="save_memory_tool",
+            description=(
+                "Guarda una nueva memoria durable como ser preferencias, reglas de negocio, "
+                "definiciones de KPI o correcciones."
+            ),
+            kind="local_write",
+            fn=save_memory_tool,
+            args_model=SaveMemoryArgs,
+            timeout_s=30000,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=False,
+        )
+    )
+
+    registry.register(
+        Tool(
+            name="supersede_memory_tool",
+            description=(
+                "Reemplaza una memoria activa existente por una nueva versión "
+                "cuando el usuario corrige o actualiza una regla, KPI o preferencia."
+            ),
+            kind="local_write",
+            fn=supersede_memory_tool,
+            args_model=SupersedeMemoryArgs,
+            timeout_s=30000,
+            retries=0,
+            backoff_s=0.05,
+            idempotent=False,
+        )
+    )
+
+    test_prompts = [
+        (
+            "Recordá esta regla de negocio para nuestros análisis: cuando te pida un ranking "
+            "de productos o clientes, mostrame siempre el Top 5 ordenado de mayor a menor por "
+            "ventas totales en USD."
+        ),
+        (
+            "Decime que productos son los que mas me compran los clientes"
+        ),
+        (
+            "Corregí mi preferencia anterior de rankings: a partir de ahora quiero ver el Top 10 "
+            "en lugar del Top 5."
+        ),
+        (
+            "Decime nuevamente cuales son los productos que mas me compran los clientes."
+        )
+    ]
+
+    with agent_session(
+        user_id="support-agent-demo",
+        role="support_agent",
+        skill_loaders=[northwind_dw_analytics],
+        project_id="northwind",
+    ) as support_agent_context:
+        for idx, prompt in enumerate(test_prompts, start=1):
+            print(f"\n==================== TURNO {idx} ====================")
             agent_run = run_basic_agent(
                 client,
                 system_prompt=system_prompt_content,
-                user_message="Decime que porductos son los que mas me compran los clientes, cual fue el ultimo producto que vendi y en que estado no tengo ventas todavia. Finalmente haceme un grafico de la evolucion mensual de mis ventas y redacta un resumen con todo",
+                user_message=prompt,
                 registry=registry,
                 decide_next=decide_next,
                 max_steps=20,
@@ -376,7 +464,4 @@ if __name__ == "__main__":
                 policy=policy,
                 max_tool_calls=10,
             )
-            #print("\n=== RESULTADO FINAL DEL AGENTE ===")
-            #print(json.dumps(agent_run, indent=2, ensure_ascii=False, default=str))
-
-            #"Como fue la evolucion mensual de mis ventas? indicame que meses aduvimos flojos y que meses nos fue bien"
+            print(f"Stop reason: {agent_run['stop_reason']}")

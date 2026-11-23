@@ -16,20 +16,23 @@ metadata:
 
 Seguí este marco de trabajo lógico para resolver las consultas del usuario:
 
-- **1. Contexto y Diseño:** Usá `load_skill_reference_tool` para leer el esquema (`references/dw-star-schema.md`) y las métricas (`references/kpi-definitions.md`).
-- **2. Extracción de Datos:** Diseñá tus consultas SQL y ejecútalas usando `execute_query_tool`. 
-- **3. Análisis de Dataset Extensos:** Solo si `execute_query_tool` te indica `metadata_only` (porque la tabla tiene demasiadas filas), usa `summarize_dataframe_tool` para inspeccionar el dataset en memoria.
-- **4. Visualización:** Si el cliente solicita un gráfico, leé siempre antes la guía en `references/chart-selection-guide.md` y luego generá la visualización usando `create_plotly_chart_tool` con el `dataset_id` que obtuviste.
-- **5. Respuesta Final:** Cargá la plantilla ejecutiva `assets/executive-report-template.md` y estructura tus hallazgos.
+- **1. Memoria Persistente:** Cuando sea necesario (por preferencias, reglas de negocio, definiciones de KPI o correcciones previas), consultá con `recall_memory_tool` y respetá lo recuperado; si el usuario confirma una regla o preferencia durable, guardala con `save_memory_tool` o actualizala con `supersede_memory_tool`.
+- **2. Contexto y Diseño:** Usá `load_skill_reference_tool` para leer el esquema (`references/dw-star-schema.md`) y las métricas (`references/kpi-definitions.md`).
+- **3. Extracción de Datos:** Diseñá tus consultas SQL y ejecútalas usando `execute_query_tool`. 
+- **4. Análisis de Dataset Extensos:** Solo si `execute_query_tool` te indica `metadata_only` (porque la tabla tiene demasiadas filas), usa `summarize_dataframe_tool` para inspeccionar el dataset en memoria.
+- **5. Visualización:** Si el cliente solicita un gráfico, leé siempre antes la guía en `references/chart-selection-guide.md` y luego generá la visualización usando `create_plotly_chart_tool` con el `dataset_id` que obtuviste.
+- **6. Respuesta Final:** Cargá la plantilla ejecutiva `assets/executive-report-template.md` y estructura tus hallazgos.
 
 ## Rules
 - No uses comillas dobles o simples para nombrar tablas o columnas en las consultas SQL.
 - Nunca incluyas código SQL ni expliques IDs de datasets en la respuesta final.
+- Respetá siempre las reglas, preferencias y definiciones recuperadas de la memoria cuando apliquen al análisis o al formato de salida.
 
 ## Example: "Evolución mensual y extremos"
 
 Si el usuario pide la evolución de ventas y los meses con más y menos ventas, además de un gráfico:
-1. Lee el esquema de la base de datos.
-2. Ejecuta una consulta SQL agrupando ventas por mes/año. Si te devuelve los datos, ya podés leer toda la tendencia. (Si te devuele `metadata_only`, usa `summarize_dataframe_tool` para inspeccionar el dataset y obtener la tendencia de ventas.)
+1. Si aplica, consultá `recall_memory_tool` para verificar preferencias o reglas previas.
+2. Lee el esquema de la base de datos.
+3. Ejecuta una consulta SQL agrupando ventas por mes/año. Si te devuelve los datos, ya podés leer toda la tendencia. (Si te devuele `metadata_only`, usa `summarize_dataframe_tool` para inspeccionar el dataset y obtener la tendencia de ventas.)
 4. Consulta la guía de gráficos y usa `create_plotly_chart_tool` con el `dataset_id` de tu primera consulta (la de tendencia).
 5. Redacta la respuesta ejecutiva final combinando todos los datos que recopilaste.
