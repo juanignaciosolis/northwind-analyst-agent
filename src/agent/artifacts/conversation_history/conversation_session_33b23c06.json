@@ -1,0 +1,15 @@
+{
+  "session_id": "session_33b23c06",
+  "summary_model": "gemini-3.1-flash-lite",
+  "summary": "",
+  "messages": [
+    {
+      "role": "user",
+      "content": "cuales son los que siempre me compran y cuanto me compran en promedio por mes"
+    },
+    {
+      "role": "assistant",
+      "content": "Para responder a tu consulta, he traducido tu pregunta a la siguiente consulta SQL, la cual identifica a los clientes recurrentes (aquellos que han realizado compras en al menos el 80% de los meses disponibles en el histórico) y calcula su promedio de compra mensual:\n\n```sql\nWITH MonthlyCustomerSales AS (\n    SELECT \n        c.CompanyName,\n        d.Year,\n        d.MonthNumber,\n        SUM(s.SalesAmount) AS MonthlyTotal\n    FROM sales s\n    JOIN customer c ON s.CustomerKey = c.CustomerKey\n    JOIN date d ON s.OrderDateKey = d.DateKey\n    GROUP BY c.CompanyName, d.Year, d.MonthNumber\n),\nCustomerActivity AS (\n    SELECT \n        CompanyName,\n        COUNT(*) AS MonthsActive,\n        AVG(MonthlyTotal) AS AvgMonthlyPurchase\n    FROM MonthlyCustomerSales\n    GROUP BY CompanyName\n),\nTotalHistory AS (\n    SELECT COUNT(DISTINCT Year * 100 + MonthNumber) AS TotalMonths\n    FROM date\n    WHERE DateKey IN (SELECT OrderDateKey FROM sales)\n)\nSELECT \n    ca.CompanyName,\n    ca.AvgMonthlyPurchase\nFROM CustomerActivity ca, TotalHistory th\nWHERE ca.MonthsActive >= (th.TotalMonths * 0.8)\nORDER BY ca.AvgMonthlyPurchase DESC;\n```\n\nEsta consulta filtra a los clientes que mantienen una actividad constante (\"que siempre me compran\") y presenta su promedio de ventas mensual. Si deseas ejecutar este análisis o visualizar los resultados, por favor házmelo saber."
+    }
+  ]
+}

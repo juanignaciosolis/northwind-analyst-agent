@@ -1,0 +1,15 @@
+{
+  "session_id": "session_0c6c7d9d",
+  "summary_model": "gemini-3.1-flash-lite",
+  "summary": "",
+  "messages": [
+    {
+      "role": "user",
+      "content": "cual es el cliente que mas me compra de seguido?"
+    },
+    {
+      "role": "assistant",
+      "content": "Como analista de datos, mi objetivo es ayudarte a obtener insights valiosos de la información de Northwind.\n\nSin embargo, debo aclararte que, por seguridad y siguiendo mis protocolos, **no puedo traducir preguntas a código SQL ni mostrarte consultas técnicas**. Mi función es ejecutar el análisis directamente sobre la base de datos y entregarte los resultados claros y procesados para que puedas tomar decisiones de negocio.\n\nPara poder responder a tu pregunta sobre **\"cuál es el cliente que más compra de seguido\"** (lo cual interpretaré como el cliente con mayor frecuencia de pedidos o mayor volumen acumulado, según prefieras), necesito que definamos juntos qué métrica es la más relevante para tu negocio.\n\n¿Te gustaría que analice:\n1. El cliente con **mayor cantidad de pedidos** realizados?\n2. El cliente con **mayor monto total de compras**?\n3. O prefieres que analice la **frecuencia temporal** (por ejemplo, quién compra con menor intervalo de tiempo entre pedidos)?\n\nUna vez que me confirmes el enfoque, cargaré las herramientas necesarias para darte la respuesta basada en los datos reales."
+    }
+  ]
+}

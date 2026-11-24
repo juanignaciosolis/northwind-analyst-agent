@@ -1,5 +1,10 @@
 # Esquema Snowflake Northwind DW (PostgreSQL)
 
+## Ventanas de Tiempo y Fechas Relativas
+
+- Cuando el usuario mencione en su consulta períodos relativos, actuales o extremos como ser "último período", "último mes", "último año", "primer período", "primer mes", "primer año", "corriente", "actual" o "rango total" no uses `CURRENT_DATE` ni fechas fijas; calculá el extremo correspondiente con `MIN` o `MAX` sobre las fechas que tienen ventas registradas en `sales` (por ejemplo, `MIN(OrderDateKey)` / `MAX(OrderDateKey)` en `sales`).
+- Regla de fecha para ventas: Salvo que el usuario pida explícitamente fecha de vencimiento o envío, usá `OrderDateKey` -> `date.DateKey`.
+
 ## Reglas Dimensionales (Cubo OLAP)
 
 - Cubo atómico (granularidad mínima): Sales(OrderDateKey, ProductKey, CustomerKey). Grano físico: línea de detalle (OrderNo, OrderLineNo).

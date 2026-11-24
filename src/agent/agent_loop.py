@@ -5,6 +5,12 @@ import json
 from typing import Any, Literal
 from pathlib import Path
 import uuid
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.table import Table
+
+console = Console()
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +29,7 @@ from contextlib import contextmanager
 from src.utils.database import create_db_pool
 from src.agent.artifacts.conversation_history import Conversation
 from src.agent.artifacts.permanent_memory import PostgresMemoryStore
+from src.utils.helpers import log_agent_event, select_session_id
 
 
 
@@ -65,6 +72,13 @@ def decide_next(
     )
     # Si call ya es el GenerationResult o un wrapper con .result:
     response = getattr(call, "result", call)
+
+    if response.tool_name in {"save_memory_tool", "supersede_memory_tool", "recall_memory_tool"}:
+        print(
+            "[DEBUG decide_next]",
+            "tool_name=", repr(response.tool_name),
+            "tool_arguments=", repr(response.tool_arguments),
+        )
 
     # Es tool solo si el modelo efectivamente devolvió el nombre de una herramienta
     is_tool_call = bool(response.tool_name)
@@ -112,6 +126,7 @@ def agent_session(
     allow_external_writes: bool = False,
     skill_loaders: list[SkillLoader] | None = None,
     conversation: Conversation | None = None,
+    session_id: str | None = None,
     project_id: str = "",
     course_id: str = "",
 ):
@@ -119,15 +134,16 @@ def agent_session(
     db_pool = create_db_pool()
     memory_store = PostgresMemoryStore(pool=db_pool, schema="agent_memory")
     try:
-        session_id = (
-            conversation.session_id
-            if conversation
-            else f"session_{uuid.uuid4().hex[:8]}"
+        clean_session_id = session_id.strip() if session_id and session_id.strip() else None
+        resolved_session_id = (
+            clean_session_id
+            or (conversation.session_id if conversation else None)
+            or f"session_{uuid.uuid4().hex[:8]}"
         )
-        conv = conversation or Conversation(session_id=session_id)
+        conv = conversation or Conversation(session_id=resolved_session_id)
         context = ExecutionContext(
             user_id=user_id,
-            session_id=session_id,
+            session_id=resolved_session_id,
             role=role,
             workspace_ids=["support-ops"],
             project_id=project_id,
@@ -174,12 +190,11 @@ def run_basic_agent(
         policy=policy,
     )
 
-    print("Pregunta del usuario:", user_message)
-
     for step in range(1, max_steps + 1):
-        print(f"Step {step}")
+        log_agent_event("step", step=step)
+
         if time.perf_counter() - started > max_seconds:
-            print("limite de tiempo")
+            log_agent_event("warn", message="Se alcanzó el límite de tiempo.")
             return {
                 "answer": "Se alcanzó el límite de tiempo.",
                 "trace": trace,
@@ -204,15 +219,13 @@ def run_basic_agent(
 
         if decision.action == "final":
             final_text = decision.final_answer or ""
-            print("Final answer:", final_text)
+            log_agent_event("final", message=final_text)
 
             if conv is not None and final_text.strip():
                 conv.add("user", user_message)
                 conv.add("assistant", final_text)
                 if len(conv.messages) > keep_last_messages:
                     conv.compact(keep_last=keep_last_messages)
-
-            print(conv.as_dicts())
 
             return {
                 "answer": final_text,
@@ -222,7 +235,7 @@ def run_basic_agent(
             }
 
         if max_tool_calls is not None and tool_calls >= max_tool_calls:
-            print("Se alcanzo presupuesto de tools")
+            log_agent_event("warn", message="Se alcanzó el presupuesto de Tool Calls.")
             return {
                 "answer": "Se alcanzó el presupuesto de Tool Calls.",
                 "trace": trace,
@@ -231,7 +244,7 @@ def run_basic_agent(
             }
 
         if not decision.tool_name:
-            print("Decision invalida")
+            log_agent_event("warn", message="Decisión inválida: falta tool_name.")
             return {
                 "answer": "Decisión inválida: falta tool_name.",
                 "trace": trace,
@@ -239,9 +252,10 @@ def run_basic_agent(
                 "stop_reason": "unrecoverable_error",
             }
 
-        print(
-            f"Calling tool: {decision.tool_name} with arguments:"
-            f" {decision.arguments}"
+        log_agent_event(
+            "tool_call",
+            tool_name=decision.tool_name,
+            arguments=decision.arguments,
         )
         result = registry.run(
             ToolCall(
@@ -254,7 +268,6 @@ def run_basic_agent(
         )
 
         if result.metadata is None:
-            print("Metadata vacia")
             result.metadata = {}
         result.metadata["name"] = decision.tool_name
         result.metadata["arguments"] = decision.arguments
@@ -263,8 +276,10 @@ def run_basic_agent(
         tool_calls += 1
         observations.append(result)
 
-        print(
-            f"Observation from tool {decision.tool_name}: {result.model_dump()}"
+        log_agent_event(
+            "tool_result",
+            tool_name=decision.tool_name,
+            result=result,
         )
         trace.append({
             "run_id": context.run_id if context is not None else None,
@@ -275,7 +290,7 @@ def run_basic_agent(
             "observation": sanitize_for_trace(result.model_dump()),
         })
 
-    print("Se alcanzo el limite de pasos")
+    log_agent_event("warn", message="Se alcanzó el máximo de pasos.")
     return {
         "answer": "Se alcanzó el máximo de pasos.",
         "trace": trace,
@@ -302,6 +317,7 @@ if __name__ == "__main__":
             description=(
                 "Ejecuta consultas SQL SELECT y guarda el resultado en memoria. "
                 "Devuelve los datos completos si son pocas filas (<= 24) o un 'dataset_id' en modo 'metadata_only' si el volumen es mayor."
+                "Usala cuando necesites obtener y procesar datos de Northwind"
             ),
             kind="read",
             fn=execute_query_tool,
@@ -319,6 +335,7 @@ if __name__ == "__main__":
             description=(
                 "Inspecciona un dataset en memoria. Permite ver estadísticas globales (describe), "
                 "ordenar por una columna (sort_by) y extraer un rango específico de filas (slice_start y slice_end)."
+                "Usala cuando 'execute_query_tool' no devuelva los datos completos"
             ),
             kind="read",
             fn=summarize_dataframe_tool,
@@ -335,7 +352,8 @@ if __name__ == "__main__":
             name="create_plotly_chart_tool",
             description=(
                 "Genera un gráfico interactivo a partir de un 'dataset_id' en memoria. "
-                "Consulta previamente la guía de selección de gráficos de la skill para parametrizarlo correctamente."
+                "Consulta previamente la guía de selección de gráficos de la skill para parametrizarlo correctamente." 
+                "Usala cuando el cliente te pida un grafico"
             ),
             kind="local_write",
             fn=create_plotly_chart_tool,
@@ -350,7 +368,8 @@ if __name__ == "__main__":
     registry.register(
         Tool(
             name="load_skill_instructions_tool",
-            description="Carga las instrucciones operativas y flujos de una skill a partir de su nombre exacto.",
+            description=("Carga las instrucciones operativas y flujos de una skill a partir de su nombre exacto."
+                         "Usala cuando necesites enteder como realizar una tarea compleja, analisis a pedido del usuario"),
             kind="read",
             fn=load_skill_instructions_tool,
             args_model=LoadSkillSchema,
@@ -364,7 +383,8 @@ if __name__ == "__main__":
     registry.register(
         Tool(
             name="load_skill_reference_tool",
-            description="Lee un archivo complementario de referencia o esquema técnico asociado a una skill.",
+            description=("Lee un archivo complementario de referencia o esquema técnico asociado a una skill."
+                         "Usa esta tool cuando necesites instrucciones, definiciones, esquemas, recursos o informacion adicional"),
             kind="read",
             fn=load_skill_reference_tool,
             args_model=LoadResourceSchema,
@@ -381,6 +401,7 @@ if __name__ == "__main__":
             description=(
                 "Recupera memorias activas y durables del usuario como ser preferencias, reglas de negocio, "
                 "definiciones de KPI, correcciones o patrones de análisis"
+                "Usala cuando necesites conocer prefencias, reglas de negocio, correcciones, definiciones impartidas por el usuario"
             ),
             kind="read",
             fn=recall_memory_tool,
@@ -398,6 +419,7 @@ if __name__ == "__main__":
             description=(
                 "Guarda una nueva memoria durable como ser preferencias, reglas de negocio, "
                 "definiciones de KPI o correcciones."
+                "Usala cuando necesites guardar una nueva preferencia, regla de negocio, correccion o definicion hecha por el usuario"
             ),
             kind="local_write",
             fn=save_memory_tool,
@@ -415,6 +437,7 @@ if __name__ == "__main__":
             description=(
                 "Reemplaza una memoria activa existente por una nueva versión "
                 "cuando el usuario corrige o actualiza una regla, KPI o preferencia."
+                "Usala cuando necesites reemplazar una preferencia, regla de negocio, correccion o definicion vieja por una nueva del usuario"
             ),
             kind="local_write",
             fn=supersede_memory_tool,
@@ -426,36 +449,49 @@ if __name__ == "__main__":
         )
     )
 
-    test_prompts = [
-        (
-            "Recordá esta regla de negocio para nuestros análisis: cuando te pida un ranking "
-            "de productos o clientes, mostrame siempre el Top 5 ordenado de mayor a menor por "
-            "ventas totales en USD."
-        ),
-        (
-            "Decime que productos son los que mas me compran los clientes"
-        ),
-        (
-            "Corregí mi preferencia anterior de rankings: a partir de ahora quiero ver el Top 10 "
-            "en lugar del Top 5."
-        ),
-        (
-            "Decime nuevamente cuales son los productos que mas me compran los clientes."
-        )
-    ]
+    EXIT_COMMANDS = {"salir", "exit", "quit", "q", ":q"}
+
+    known_sessions: list[str] = []
+    selected_session_id = select_session_id(known_sessions)
 
     with agent_session(
         user_id="support-agent-demo",
         role="support_agent",
         skill_loaders=[northwind_dw_analytics],
         project_id="northwind",
+        session_id= selected_session_id
     ) as support_agent_context:
-        for idx, prompt in enumerate(test_prompts, start=1):
-            print(f"\n==================== TURNO {idx} ====================")
+        console.print(
+            Panel.fit(
+                f"[bold cyan]Chat Northwind Analyst[/bold cyan]\n"
+                f"Sesión: [bold]{selected_session_id}[/bold]\n"
+                f"Escribí [bold]salir[/bold] para terminar.",
+                border_style="cyan",
+            )
+        )
+
+        turn = 0
+        while True:
+            try:
+                user_input = console.input("\n[bold blue]Vos > [/bold blue]").strip()
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[dim]Sesión finalizada.[/dim]")
+                break
+
+            if not user_input:
+                continue
+
+            if user_input.lower() in EXIT_COMMANDS:
+                console.print("[dim]Cerrando sesión... ¡Hasta luego![/dim]")
+                break
+
+            turn += 1
+            console.print(f"[dim]Turno {turn}[/dim]")
+
             agent_run = run_basic_agent(
                 client,
                 system_prompt=system_prompt_content,
-                user_message=prompt,
+                user_message=user_input,
                 registry=registry,
                 decide_next=decide_next,
                 max_steps=20,
@@ -464,4 +500,8 @@ if __name__ == "__main__":
                 policy=policy,
                 max_tool_calls=10,
             )
-            print(f"Stop reason: {agent_run['stop_reason']}")
+
+            if agent_run["stop_reason"] != "final_answer":
+                console.print(
+                    f"[yellow]Stop reason:[/yellow] {agent_run['stop_reason']}"
+                )

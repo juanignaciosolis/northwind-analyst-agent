@@ -1,0 +1,15 @@
+{
+  "session_id": "session_3794400d",
+  "summary_model": "gemini-3.1-flash-lite",
+  "summary": "",
+  "messages": [
+    {
+      "role": "user",
+      "content": "dame mis preferencias"
+    },
+    {
+      "role": "assistant",
+      "content": "No tengo preferencias o reglas almacenadas en este momento. Si tienes alguna preferencia o regla que te gustaría establecer, por favor házmelo saber y la guardaré."
+    }
+  ]
+}

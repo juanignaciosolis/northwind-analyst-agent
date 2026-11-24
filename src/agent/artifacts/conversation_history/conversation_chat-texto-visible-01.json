@@ -1,0 +1,47 @@
+{
+  "session_id": "chat-texto-visible-01",
+  "summary_model": "gemini-3.1-flash-lite",
+  "summary": "**Resumen de Ventas 2025 (Neto de devoluciones)**\n\n*   **Total:** $48.200.000 (12.430 operaciones).\n*   **Desempeño Trimestral:** Crecimiento del 14,2% en Q4 ($14.100.000) vs. Q3 ($12.345.000).\n*   **Rubro Líder:** Electrónica ($19.500.000; 40,5% del total; margen bruto 28,4%).\n*   **Ticket Promedio por Canal:**\n    *   Sucursales: $4.120\n    *   Online: $3.850\n*   **Top 3 Productos (Unidades):**\n    1. Teclado mecánico: 4.200\n    2. Mouse inalámbrico: 3.890\n    3. Hub USB-C: 3.110 (quiebre de stock de 9 días en noviembre).\n*   **Márgenes por Categoría:**\n    *   Accesorios: 31,0%\n    *   Periféricos: 26,8%",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Ahora veamos clientes recurrentes, los que compraron al menos tres veces."
+    },
+    {
+      "role": "assistant",
+      "content": "Hay 1.820 clientes recurrentes y concentran el 62% de los ingresos."
+    },
+    {
+      "role": "user",
+      "content": "¿Qué zona tuvo mayor retención en el último trimestre?"
+    },
+    {
+      "role": "assistant",
+      "content": "La zona norte tuvo la mayor retención con un 74,5%."
+    },
+    {
+      "role": "user",
+      "content": "¿Cuál fue el costo de adquisición promedio por cliente nuevo?"
+    },
+    {
+      "role": "assistant",
+      "content": "El costo de adquisición promedio fue de $1.450 por cliente nuevo."
+    },
+    {
+      "role": "user",
+      "content": "¿Qué medio de pago fue el más utilizado en tienda física?"
+    },
+    {
+      "role": "assistant",
+      "content": "La tarjeta de crédito en cuotas representó el 54% de las ventas en tienda física."
+    },
+    {
+      "role": "user",
+      "content": "¿Hubo diferencia de margen entre ventas en cuotas y pago al contado?"
+    },
+    {
+      "role": "assistant",
+      "content": "Sí, el pago al contado dejó 4,5 puntos porcentuales más de margen neto."
+    }
+  ]
+}

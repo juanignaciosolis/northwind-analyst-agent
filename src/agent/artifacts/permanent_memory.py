@@ -50,6 +50,19 @@ class WriteDecision:
     reason: str
 
 
+def _validate_kind(kind: Any) -> str:
+    if not isinstance(kind, str) or not kind.strip():
+        raise ValueError(
+            f"El tipo de memoria ('kind') es obligatorio. Válidos: {sorted(ALLOWED_MEMORY_KINDS)}."
+        )
+    normalized = kind.strip()
+    if normalized not in ALLOWED_MEMORY_KINDS:
+        raise ValueError(
+            f"Tipo de memoria no permitido '{normalized}'. Válidos: {sorted(ALLOWED_MEMORY_KINDS)}."
+        )
+    return normalized
+
+
 def evaluate_write(candidate: MemoryCandidate) -> WriteDecision:
     """Evalúa si un candidato cumple las reglas de persistencia durable."""
     if not candidate.persist_allowed:
@@ -60,11 +73,10 @@ def evaluate_write(candidate: MemoryCandidate) -> WriteDecision:
         return WriteDecision(False, "Solo se persisten datos confirmados explícitamente.")
     if not candidate.durable:
         return WriteDecision(False, "Solo se persisten datos durables (no transitorios).")
-    if candidate.kind not in ALLOWED_MEMORY_KINDS:
-        return WriteDecision(
-            False,
-            f"Tipo de memoria no permitido '{candidate.kind}'. Válidos: {sorted(ALLOWED_MEMORY_KINDS)}.",
-        )
+    try:
+        _validate_kind(candidate.kind)
+    except ValueError as exc:
+        return WriteDecision(False, str(exc))
     if not candidate.key or not candidate.key.strip():
         return WriteDecision(False, "La clave ('key') de memoria no puede estar vacía.")
     if not (0.0 <= float(candidate.confidence) <= 1.0):
@@ -94,6 +106,7 @@ class PostgresMemoryStore:
         if not decision.allowed:
             raise ValueError(f"Memoria rechazada: {decision.reason}")
 
+        clean_kind = _validate_kind(candidate.kind)
         memory_id = str(uuid4())
         now = datetime.now(timezone.utc)
         payload = Jsonb(_normalize_json_payload(candidate.value))
@@ -144,7 +157,7 @@ class PostgresMemoryStore:
             scope.project_id,
             scope.course_id,
             scope.session_id,
-            candidate.kind,
+            clean_kind,
             candidate.key.strip(),
             payload,
             candidate.source,
@@ -188,9 +201,14 @@ class PostgresMemoryStore:
         else:
             clauses.append("session_id = ''")
 
-        if kinds:
+        if kinds is not None:
+            validated_kinds = [_validate_kind(k) for k in kinds]
+            if not validated_kinds:
+                raise ValueError(
+                    f"Si se especifica 'kinds', debe contener al menos un tipo válido: {sorted(ALLOWED_MEMORY_KINDS)}."
+                )
             clauses.append("kind = ANY(%s)")
-            params.append(list(kinds))
+            params.append(validated_kinds)
 
         if query and query.strip():
             pattern = f"%{query.strip()}%"
@@ -240,6 +258,7 @@ class PostgresMemoryStore:
         if not decision.allowed:
             raise ValueError(f"Nueva memoria rechazada: {decision.reason}")
 
+        clean_kind = _validate_kind(candidate.kind)
         new_id = str(uuid4())
         now = datetime.now(timezone.utc)
         payload = Jsonb(_normalize_json_payload(candidate.value))
@@ -321,7 +340,7 @@ class PostgresMemoryStore:
                         scope.project_id,
                         scope.course_id,
                         scope.session_id,
-                        candidate.kind,
+                        clean_kind,
                         candidate.key.strip(),
                         payload,
                         candidate.source,
@@ -362,6 +381,7 @@ class PostgresMemoryStore:
             conn.commit()
 
         return updated
+
 
 def main() -> None:
     pool = create_db_pool()

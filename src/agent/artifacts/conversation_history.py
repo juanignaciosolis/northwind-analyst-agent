@@ -1,8 +1,12 @@
 from dataclasses import dataclass, field
+import json
+import os
+from pathlib import Path
+import re
+import time
 from typing import Any, Literal
 from google import genai
 from google.genai import types
-import time
 
 from src.settings import settings
 
@@ -10,13 +14,20 @@ from src.settings import settings
 Role = Literal["user", "assistant"]
 
 DEFAULT_SUMMARY_MODEL = "gemini-3.1-flash-lite"
+DEFAULT_STORAGE_DIR = Path(__file__).resolve().parent / 'conversation_history'
 DEFAULT_SUMMARY_SYSTEM = (
     "Eres un asistente de compactación de historial de conversacion "
-    "Tu objetivo es crea un resumen breve, preciso y factual con los datos proporcioandos." 
-    "Conserva tablas, métricas, filtros, decisiones y hallazgos clave;" 
+    "Tu objetivo es crea un resumen breve, preciso y factual con los datos proporcioandos."
+    "Conserva tablas, métricas, filtros, decisiones y hallazgos clave;"
     "omite saludos y relleno."
     "Responde solo con el resumen."
 )
+
+
+def _sanitizar_identificador(session_id: str) -> str:
+    limpio = re.sub(r"[^A-Za-z0-9._-]+", "_", session_id.strip())
+    return limpio.strip("._") or "default_session"
+
 
 @dataclass
 class Message:
@@ -33,11 +44,84 @@ class Conversation:
     summary_model: str = DEFAULT_SUMMARY_MODEL
     messages: list[Message] = field(default_factory=list)
     summary: str = ""
+    storage_dir: Path | str = DEFAULT_STORAGE_DIR
+    storage_path: Path | str | None = None
+    auto_save: bool = True
     _genai_client: genai.Client | None = field(default=None, init=False, repr=False)
+    _explicit_summary_model: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.summary_model != DEFAULT_SUMMARY_MODEL:
+            self._explicit_summary_model = True
+        if self.json_path.exists():
+            self.load()
+        elif self.auto_save:
+            self.save()
+
+    @property
+    def json_path(self) -> Path:
+        if self.storage_path is not None:
+            return Path(self.storage_path)
+        base_dir = Path(self.storage_dir)
+        filename = f"conversation_{_sanitizar_identificador(self.session_id)}.json"
+        return base_dir / filename
+
+    def save(self) -> Path:
+        """Guarda el estado conversacional de la sesión en disco en formato JSON."""
+        target = self.json_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        payload: dict[str, Any] = {
+            "session_id": self.session_id,
+            "summary_model": self.summary_model,
+            "summary": self.summary,
+            "messages": [msg.to_dict() for msg in self.messages],
+        }
+
+        tmp_path = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+        with tmp_path.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp_path, target)
+        return target
+
+    def load(self) -> bool:
+        """Carga el estado conversacional desde el JSON si existe."""
+        target = self.json_path
+        if not target.exists():
+            return False
+
+        with target.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        if not isinstance(data, dict):
+            return False
+
+        if not self._explicit_summary_model and isinstance(data.get("summary_model"), str) and data["summary_model"].strip():
+            self.summary_model = data["summary_model"].strip()
+
+        if isinstance(data.get("summary"), str):
+            self.summary = data["summary"]
+
+        raw_messages = data.get("messages")
+        if isinstance(raw_messages, list):
+            cargados: list[Message] = []
+            for item in raw_messages:
+                if isinstance(item, dict) and item.get("role") in ("user", "assistant"):
+                    cargados.append(
+                        Message(
+                            role=item["role"],
+                            content=str(item.get("content", "")),
+                        )
+                    )
+            self.messages = cargados
+
+        return True
 
     def _get_client(self) -> genai.Client:
         if self._genai_client is None:
-            self._genai_client = genai.Client(api_key=settings.api_key_value())
+            self._genai_client = genai.Client(api_key=settings.gemini_api_key_value())
         return self._genai_client
 
     def _generate_summary_text(
@@ -74,6 +158,8 @@ class Conversation:
 
     def add(self, role: Role, content: str) -> None:
         self.messages.append(Message(role=role, content=content))
+        if self.auto_save:
+            self.save()
 
     def recent(self, max_messages: int = 10) -> list[Message]:
         if max_messages <= 0:
@@ -108,6 +194,8 @@ class Conversation:
             raise ValueError("keep_last debe ser >= 0 y summary_item_chars > 0")
 
         if len(self.messages) <= keep_last:
+            if self.auto_save:
+                self.save()
             return {
                 "summary": self.summary,
                 "history": self.as_dicts(keep_last if keep_last > 0 else 10),
@@ -145,11 +233,15 @@ class Conversation:
 
         self.messages = recent_messages
 
+        if self.auto_save:
+            self.save()
+
         return {
             "summary": self.summary,
             "history": self.as_dicts(keep_last if keep_last > 0 else 10),
             "compacted_count": len(old_messages),
         }
+
 
 def _mostrar_todos_los_mensajes(titulo: str, mensajes: list[Message]) -> None:
     print(f"\n{'#' * 80}")

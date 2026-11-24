@@ -1,0 +1,15 @@
+{
+  "session_id": "session_c1f5a78b",
+  "summary_model": "gemini-3.1-flash-lite",
+  "summary": "",
+  "messages": [
+    {
+      "role": "user",
+      "content": "cuales son los que siempre me compran y cuanto me compran en promedio por mes"
+    },
+    {
+      "role": "assistant",
+      "content": "Para obtener los clientes que realizan compras recurrentes y su promedio de compra mensual, la consulta SQL necesaria es la siguiente:\n\n```sql\nSELECT \n    c.CompanyName, \n    COUNT(DISTINCT d.Year * 100 + d.MonthNumber) AS MesesConCompra,\n    SUM(s.SalesAmount) / COUNT(DISTINCT d.Year * 100 + d.MonthNumber) AS PromedioMensual\nFROM sales s\nJOIN customer c ON s.CustomerKey = c.CustomerKey\nJOIN date d ON s.OrderDateKey = d.DateKey\nGROUP BY c.CompanyName\nHAVING COUNT(DISTINCT d.Year * 100 + d.MonthNumber) > 1\nORDER BY MesesConCompra DESC, PromedioMensual DESC;\n```"
+    }
+  ]
+}

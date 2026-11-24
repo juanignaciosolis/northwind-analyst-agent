@@ -1288,12 +1288,21 @@ def load_skill_reference_tool(
         )
 
 
+MemoryKind = Literal[
+    "user_preference",
+    "business_rule",
+    "user_correction",
+    "kpi_definition",
+    "analysis_pattern",
+]
+
+
 class RecallMemoryArgs(BaseModel):
     query: str | None = Field(
         default=None,
         description="Texto o palabra clave para buscar en `key` o en el contenido de memoria.",
     )
-    kinds: list[str] | None = Field(
+    kinds: list[MemoryKind] | None = Field(
         default=None,
         description=(
             "Lista opcional de tipos a filtrar: user_preference, business_rule, "
@@ -1304,7 +1313,7 @@ class RecallMemoryArgs(BaseModel):
 
 
 class SaveMemoryArgs(BaseModel):
-    kind: str = Field(..., min_length=1)
+    kind: MemoryKind = Field(...)
     key: str = Field(..., min_length=1)
     value: Any = Field(...)
     source: str = Field(default="user_explicit")
@@ -1317,7 +1326,7 @@ class SaveMemoryArgs(BaseModel):
 
 class SupersedeMemoryArgs(BaseModel):
     old_memory_id: str = Field(..., min_length=1)
-    kind: str = Field(..., min_length=1)
+    kind: MemoryKind = Field(...)
     key: str = Field(..., min_length=1)
     value: Any = Field(...)
     source: str = Field(default="user_correction")
@@ -2041,3 +2050,17 @@ if __name__ == "__main__":
 
     finally:
         db_pool.close()
+
+    print("\n>>> [DEBUG] SaveMemoryArgs JSON Schema:")
+    print(json.dumps(SaveMemoryArgs.model_json_schema(), indent=2, ensure_ascii=False))
+
+    declarations = registry.function_declarations(
+        context=support_agent_context,
+        policy=policy,
+    )
+    mem_decls = [
+        d for d in declarations
+        if isinstance(d, dict) and d.get("name") in {"save_memory_tool", "supersede_memory_tool", "recall_memory_tool"}
+    ]
+    print("\n>>> [DEBUG] Function declarations registradas para memoria:")
+    print(json.dumps(mem_decls, indent=2, ensure_ascii=False, default=str))

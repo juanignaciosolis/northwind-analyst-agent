@@ -45,3 +45,6 @@ src/agent/artifacts/*.html
 
 # Utils
 tests/populate_dataset.py
+
+# Memory
+.conversation_history/*.json

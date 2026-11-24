@@ -82,13 +82,16 @@ class Settings(BaseSettings):
         values = {"_env_file": path} if path is not None and path.exists() else {}
         return cls(**values)
 
-    def api_key_value(self) -> str | None:
-        if self.default_provider == "GEMINI":
+    def gemini_api_key_value(self) -> str | None:
+        return self.gemini_api_key.get_secret_value() if self.gemini_api_key else None
+
+    def api_key_value(self, provider: str | None = None) -> str | None:
+        target = (provider or self.default_provider).upper()
+        if target == "GEMINI":
             return self.gemini_api_key.get_secret_value() if self.gemini_api_key else None
-        elif self.default_provider == "OPENAI":
-             return self.openai_api_key.get_secret_value() if self.openai_api_key else None     
-        else:
-            return None  
+        if target == "OPENAI":
+            return self.openai_api_key.get_secret_value() if self.openai_api_key else None
+        return None
 
     def get_db_password(self) -> str | None:
         if self.db_password:

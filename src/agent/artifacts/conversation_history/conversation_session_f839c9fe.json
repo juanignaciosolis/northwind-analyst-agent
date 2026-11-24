@@ -1,0 +1,23 @@
+{
+  "session_id": "session_f839c9fe",
+  "summary_model": "gemini-3.1-flash-lite",
+  "summary": "",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Cual es el pais al que mas vendi?"
+    },
+    {
+      "role": "assistant",
+      "content": "El país al que más se ha vendido en Northwind es Estados Unidos, con un total de ventas de 238,490.39."
+    },
+    {
+      "role": "user",
+      "content": "Cuanto le vendi a alemania en el corriente año?"
+    },
+    {
+      "role": "assistant",
+      "content": "Para obtener el monto total de ventas realizadas a Alemania en el año actual, la consulta SQL sería la siguiente:\n\nSELECT SUM(s.SalesAmount)\nFROM sales s\nJOIN date d ON s.OrderDateKey = d.DateKey\nJOIN customer c ON s.CustomerKey = c.CustomerKey\nJOIN city ci ON c.CityKey = ci.CityKey\nJOIN state st ON ci.StateKey = st.StateKey\nJOIN country co ON st.CountryKey = co.CountryKey\nWHERE co.CountryName = 'Germany'\nAND d.Year = EXTRACT(YEAR FROM CURRENT_DATE);"
+    }
+  ]
+}

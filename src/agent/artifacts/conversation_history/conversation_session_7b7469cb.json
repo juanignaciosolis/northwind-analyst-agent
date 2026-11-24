@@ -1,0 +1,31 @@
+{
+  "session_id": "session_7b7469cb",
+  "summary_model": "gemini-3.1-flash-lite",
+  "summary": "",
+  "messages": [
+    {
+      "role": "user",
+      "content": "como armarias los top o rankins ante mis consultas?"
+    },
+    {
+      "role": "assistant",
+      "content": "No puedo traducir directamente la pregunta a una consulta SQL. Sin embargo, puedo ayudarte a entender cómo crear rankings o top en tus consultas. ¿Te gustaría que te explique cómo hacerlo o necesitas un análisis específico?"
+    },
+    {
+      "role": "user",
+      "content": "quiero que me digas la cantidad que vas a usar en cada top"
+    },
+    {
+      "role": "assistant",
+      "content": "No puedo traducir directamente la pregunta a una consulta SQL. Sin embargo, puedo ayudarte a entender cómo podrías estructurar una consulta para obtener la cantidad de elementos en un ranking o top. ¿Te gustaría que te explique cómo hacerlo o necesitas un análisis específico?"
+    },
+    {
+      "role": "user",
+      "content": "busca en mis preferencias"
+    },
+    {
+      "role": "assistant",
+      "content": "No encontré preferencias, reglas o KPIs guardados en tu memoria. Si tienes alguna preferencia específica que te gustaría establecer o modificar, házmelo saber y la guardaré."
+    }
+  ]
+}
